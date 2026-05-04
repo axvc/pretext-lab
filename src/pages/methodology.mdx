@@ -1,0 +1,56 @@
+---
+layout: ../layouts/BaseLayout.astro
+title: Methodology
+description: How experiments in this lab are run, measured, and reported.
+---
+
+<article class="mx-auto max-w-3xl px-6 py-16 prose-experiment">
+
+# Methodology
+
+This page documents how experiments in this lab are run and how the numbers
+on each experiment page should be interpreted. It is also a TODO list — each
+section below is a stub I will fill in as the experiment set grows.
+
+## Warm-up runs
+
+_TODO._ Why every benchmark discards the first N runs (JIT warm-up, cold
+caches, layout-engine cold start). Default warm-up count and how to override
+per experiment.
+
+## Iteration count and percentiles
+
+_TODO._ Why p50 and p95 instead of mean. How `compare()` picks the slowest
+entry as the baseline so ratios read as "X times faster than the slowest."
+
+## User Timing API and `performance.now()`
+
+_TODO._ Why `performance.now()` over `Date.now()`. When User Timing marks
+are useful for separating phases (measure vs paint vs commit) and when they
+are not.
+
+## CPU throttling
+
+_TODO._ How DevTools 4× / 6× CPU throttling changes the picture. Whether to
+rely on it or run physical low-power hardware.
+
+## Browsers tested
+
+_TODO._ Which browsers and versions each experiment was run in. Notes on
+where engines diverge meaningfully (Safari vs Chromium vs Firefox text
+shaping, layout containment behavior, etc.).
+
+## What this lab does NOT measure
+
+_TODO._ Bundle size impact. Memory pressure under sustained load.
+Accessibility tree integrity. SSR/hydration paths. Be explicit about every
+boundary so readers can decide whether the numbers are load-bearing for
+their use case.
+
+## How to read a result
+
+_TODO._ A short guide to the per-experiment result panel — what counts as a
+meaningful difference vs noise, and how confidence intervals are reported
+(or not).
+
+</article>

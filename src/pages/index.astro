@@ -1,0 +1,71 @@
+---
+import { getCollection } from "astro:content";
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import ExperimentCard from "@/components/ExperimentCard.astro";
+
+const experiments = (await getCollection("experiments")).sort(
+  (a, b) => a.data.order - b.data.order,
+);
+---
+
+<BaseLayout
+  title="Pretext.lab"
+  description="A research-first benchmarking lab for Pretext.js. One hypothesis, one methodology, one set of honest numbers per experiment."
+>
+  <section class="mx-auto max-w-3xl px-6 pt-20 pb-16">
+    <p class="font-mono text-xs uppercase tracking-wider text-[var(--color-accent)] mb-6">
+      Pretext.js benchmark lab
+    </p>
+    <h1 class="text-4xl md:text-5xl font-semibold leading-tight mb-6">
+      I found a library that promises 300–600× faster text layout. I measured
+      it. Here's what came out.
+    </h1>
+    <p class="text-[var(--color-muted)] text-lg max-w-2xl mb-8">
+      Each experiment below is one hypothesis, one method, one set of numbers.
+      Run them yourself in the browser. The methodology page documents what
+      was — and was not — measured.
+    </p>
+    <div class="flex gap-4 text-sm">
+      <a
+        href="/methodology"
+        class="border border-[var(--color-border)] hover:border-[var(--color-accent)] rounded px-4 py-2 hover:no-underline"
+      >
+        Read the methodology →
+      </a>
+      <a
+        href="https://github.com/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="border border-[var(--color-border)] hover:border-[var(--color-accent)] rounded px-4 py-2 hover:no-underline"
+      >
+        View source on GitHub
+      </a>
+    </div>
+  </section>
+
+  <section id="experiments" class="mx-auto max-w-5xl px-6 pb-24">
+    <div class="border-t border-[var(--color-border)] pt-12">
+      <h2 class="font-mono text-xs uppercase tracking-wider text-[var(--color-muted)] mb-8">
+        Experiments
+      </h2>
+      {
+        experiments.length === 0 ? (
+          <p class="text-[var(--color-muted)]">No experiments yet.</p>
+        ) : (
+          <div class="grid gap-4 md:grid-cols-2">
+            {experiments.map((entry) => (
+              <ExperimentCard
+                href={`/experiments/${entry.id}`}
+                order={entry.data.order}
+                title={entry.data.title}
+                summary={entry.data.summary}
+                status={entry.data.status}
+                apis={entry.data.apis}
+              />
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </section>
+</BaseLayout>

@@ -1,0 +1,29 @@
+---
+const links = [
+  { href: "/#experiments", label: "Experiments" },
+  { href: "/methodology", label: "Methodology" },
+  { href: "https://github.com/", label: "GitHub", external: true },
+];
+---
+
+<header class="border-b border-[var(--color-border)]">
+  <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
+    <a href="/" class="font-mono text-sm tracking-tight">
+      <span class="text-[var(--color-accent)]">●</span> pretext.lab
+    </a>
+    <nav class="flex items-center gap-6 text-sm text-[var(--color-muted)]">
+      {
+        links.map((link) => (
+          <a
+            href={link.href}
+            target={link.external ? "_blank" : undefined}
+            rel={link.external ? "noopener noreferrer" : undefined}
+            class="hover:text-[var(--color-fg)]"
+          >
+            {link.label}
+          </a>
+        ))
+      }
+    </nav>
+  </div>
+</header>

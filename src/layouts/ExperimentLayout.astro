@@ -1,0 +1,79 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+type Frontmatter = {
+  title: string;
+  summary: string;
+  order: number;
+  status: "draft" | "published";
+  apis: string[];
+};
+
+type Props = { frontmatter: Frontmatter };
+
+const { frontmatter } = Astro.props;
+---
+
+<BaseLayout title={frontmatter.title} description={frontmatter.summary}>
+  <article class="mx-auto max-w-3xl px-6 py-16">
+    <header class="border-b border-[var(--color-border)] pb-8 mb-10">
+      <div class="font-mono text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
+        Experiment {String(frontmatter.order).padStart(2, "0")}
+        {
+          frontmatter.status === "draft" && (
+            <span class="ml-3 text-[var(--color-accent)]">draft</span>
+          )
+        }
+      </div>
+      <h1 class="text-3xl font-semibold mb-3">{frontmatter.title}</h1>
+      <p class="text-[var(--color-muted)]">{frontmatter.summary}</p>
+      {
+        frontmatter.apis.length > 0 && (
+          <ul class="mt-5 flex flex-wrap gap-2">
+            {frontmatter.apis.map((api) => (
+              <li class="font-mono text-xs px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)]">
+                {api}
+              </li>
+            ))}
+          </ul>
+        )
+      }
+    </header>
+    <div class="prose-experiment">
+      <slot />
+    </div>
+  </article>
+</BaseLayout>
+
+<style is:global>
+  .prose-experiment {
+    line-height: 1.7;
+  }
+  .prose-experiment h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .prose-experiment p {
+    margin-bottom: 1rem;
+  }
+  .prose-experiment code {
+    background: var(--color-accent-soft);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  .prose-experiment pre {
+    background: #111;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  .prose-experiment pre code {
+    background: transparent;
+    padding: 0;
+  }
+</style>

@@ -32,5 +32,8 @@
       "esbuild",
       "sharp"
     ]
+  },
+  "dependencies": {
+    "@chenglou/pretext": "^0.0.6"
   }
 }

@@ -47,3 +47,67 @@ describe("runBench", () => {
     expect(timings.length).toBeLessThan(1000);
   });
 });
+
+describe("runBench (spec form)", () => {
+  it("returns { setupMs, timings } and runs all phases in order", async () => {
+    const order: string[] = [];
+    let measureCalls = 0;
+
+    const result = await runBench(
+      {
+        setup: () => {
+          order.push("setup");
+        },
+        measure: () => {
+          if (!order.includes("measure")) order.push("measure");
+          measureCalls += 1;
+        },
+        teardown: () => {
+          order.push("teardown");
+        },
+      },
+      { warmup: 3, iterations: 5, maxDurationMs: 5000 },
+    );
+
+    expect(order).toEqual(["setup", "measure", "teardown"]);
+    expect(measureCalls).toBe(3 + 5);
+    expect(result.timings).toHaveLength(5);
+    expect(typeof result.setupMs).toBe("number");
+  });
+
+  it("setupMs is null when no setup is provided", async () => {
+    const result = await runBench(
+      { measure: () => {} },
+      { warmup: 1, iterations: 2, maxDurationMs: 5000 },
+    );
+    expect(result.setupMs).toBeNull();
+    expect(result.timings).toHaveLength(2);
+  });
+
+  it("setupMs reflects the duration of setup only", async () => {
+    const result = await runBench(
+      {
+        setup: () => new Promise<void>((resolve) => setTimeout(resolve, 50)),
+        measure: () => {},
+      },
+      { warmup: 0, iterations: 2, maxDurationMs: 5000 },
+    );
+    expect(result.setupMs).not.toBeNull();
+    expect(result.setupMs as number).toBeGreaterThanOrEqual(40);
+  });
+
+  it("calls teardown exactly once even when iterations early-exit", async () => {
+    let teardownCalls = 0;
+    const result = await runBench(
+      {
+        measure: () => new Promise<void>((resolve) => setTimeout(resolve, 5)),
+        teardown: () => {
+          teardownCalls += 1;
+        },
+      },
+      { warmup: 0, iterations: 1000, maxDurationMs: 30 },
+    );
+    expect(teardownCalls).toBe(1);
+    expect(result.timings.length).toBeLessThan(1000);
+  });
+});

@@ -4,6 +4,17 @@ export type BenchOpts = {
   maxDurationMs?: number;
 };
 
+export type BenchSpec = {
+  setup?: () => void | Promise<void>;
+  measure: () => void | Promise<void>;
+  teardown?: () => void | Promise<void>;
+};
+
+export type BenchResult = {
+  setupMs: number | null;
+  timings: number[];
+};
+
 export type BenchSummary = {
   p50: number;
   p95: number;

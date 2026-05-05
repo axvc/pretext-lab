@@ -1,33 +1,47 @@
 ---
-title: Single measurement baseline
-summary: Placeholder experiment — wiring check for the MDX + content collection + React island pipeline.
+title: Single measurement experiment
+summary: DOM, Canvas, and Pretext measure the same text once at a fixed width.
 order: 1
-status: draft
-apis: []
+status: published
+apis: ["layout"]
 ---
 
 import { BenchRunner } from "@/components/BenchRunner";
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor
-incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis
-nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
-
 ## Hypothesis
 
-_Placeholder._ Replace this section with a single, falsifiable claim before
-publishing.
+For a single measurement, Pretext pays enough preparation cost that DOM and
+Canvas are expected to be faster. This run is meant to harden the browser
+benchmark pipeline before using it for broader comparisons.
 
-## Method
+## Setup
 
-_Placeholder._ Describe warm-up, iterations, what is measured, and what is
-deliberately not measured.
+- Text lengths: 10, 100, 1000, and 5000 characters from a deterministic lorem fixture.
+- Width: 600px.
+- Font: `16px "Inter"`.
+- Line height: `1.5` for DOM and Canvas, `24px` for Pretext.
+- Warmup: 100 calls per cell.
+- Timed iterations: 1000 calls per cell.
+- Reported values: `p50`, `p95`, and `p99`, formatted in microseconds.
 
-<BenchRunner client:load />
+<BenchRunner client:load textLengths={[10, 100, 1000, 5000]} strategies={["dom", "canvas", "pretext"]} containerWidthPx={600} />
 
-## Result
+## What this measures (and what it doesn't)
 
-_Placeholder._ Numbers go here once the runner is wired up.
+The DOM strategy appends a hidden element to `document.body`, forces layout with
+`offsetHeight`, then removes the element. Detached fragments are avoided because
+they are unrealistically fast for this workload.
 
-## What this does not measure
+The Canvas strategy uses `ctx.measureText` with a simple greedy word wrap helper.
+It does not model hyphenation, CJK line breaking, soft hyphens, bidi behavior, or
+browser-specific text shaping details.
 
-_Placeholder._ Be explicit about the boundaries.
+The Pretext strategy runs `prepare(text, '16px "Inter"')` once per text length,
+then calls `layout(handle, 600, 24)` inside the timed loop. The separate
+`Pretext prepare` row reports the per-length preparation cost.
+
+## Reading the numbers
+
+Each table cell is one strategy and one text length. The three values are the
+median, 95th percentile, and 99th percentile of the measured call duration. The
+numbers are local to the browser tab, machine load, and font state for this run.

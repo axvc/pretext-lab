@@ -1,4 +1,4 @@
-import type { BenchOpts } from "./types";
+import type { BenchOpts, BenchResult, BenchSpec } from "./types";
 
 const DEFAULTS = {
   warmup: 50,
@@ -8,25 +8,48 @@ const DEFAULTS = {
 
 export async function runBench(
   fn: () => void | Promise<void>,
+  opts?: BenchOpts,
+): Promise<number[]>;
+export async function runBench(
+  spec: BenchSpec,
+  opts?: BenchOpts,
+): Promise<BenchResult>;
+export async function runBench(
+  arg: (() => void | Promise<void>) | BenchSpec,
   opts: BenchOpts = {},
-): Promise<number[]> {
+): Promise<number[] | BenchResult> {
+  const isLegacy = typeof arg === "function";
+  const spec: BenchSpec = isLegacy ? { measure: arg } : arg;
+
   const warmup = opts.warmup ?? DEFAULTS.warmup;
   const iterations = opts.iterations ?? DEFAULTS.iterations;
   const maxDurationMs = opts.maxDurationMs ?? DEFAULTS.maxDurationMs;
 
-  for (let i = 0; i < warmup; i++) {
-    await fn();
+  let setupMs: number | null = null;
+  if (spec.setup) {
+    const t0 = performance.now();
+    await spec.setup();
+    setupMs = performance.now() - t0;
   }
 
   const timings: number[] = [];
-  const start = performance.now();
 
-  for (let i = 0; i < iterations; i++) {
-    if (performance.now() - start > maxDurationMs) break;
-    const t0 = performance.now();
-    await fn();
-    timings.push(performance.now() - t0);
+  try {
+    for (let i = 0; i < warmup; i++) {
+      await spec.measure();
+    }
+
+    const start = performance.now();
+
+    for (let i = 0; i < iterations; i++) {
+      if (performance.now() - start > maxDurationMs) break;
+      const t0 = performance.now();
+      await spec.measure();
+      timings.push(performance.now() - t0);
+    }
+  } finally {
+    await spec.teardown?.();
   }
 
-  return timings;
+  return isLegacy ? timings : { setupMs, timings };
 }

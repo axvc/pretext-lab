@@ -82,6 +82,8 @@ export function BenchRunner({
     createInitialCells(strategies, textLengths),
   );
   const [running, setRunning] = useState(false);
+  const [prewarming, setPrewarming] = useState(false);
+  const [prewarmed, setPrewarmed] = useState(false);
 
   const totalCells = textLengths.length * strategies.length;
   const doneCells = useMemo(
@@ -149,6 +151,39 @@ export function BenchRunner({
     setRunning(false);
   }
 
+  async function prewarm() {
+    setPrewarming(true);
+    setPrewarmed(false);
+    await waitForFonts();
+
+    for (const strategyName of strategies) {
+      for (const length of textLengths) {
+        try {
+          const text = loremOfLength(length);
+          const strategy = strategyMap[strategyName];
+          const { measurer } = await strategy.prepareForText(text);
+          await runBench(
+            {
+              measure: () => {
+                measurer.measure(containerWidthPx);
+              },
+              teardown: () => {
+                measurer.teardown?.();
+              },
+            },
+            { warmup: 0, iterations: 5, batchSize: 100, maxDurationMs: 500 },
+          );
+        } catch {
+          // ignore errors during prewarm — it's best-effort
+        }
+        await waitForIdle();
+      }
+    }
+
+    setPrewarming(false);
+    setPrewarmed(true);
+  }
+
   const statusText =
     errorCells > 0
       ? `${doneCells}/${totalCells} cells done, ${errorCells} failed`
@@ -159,7 +194,17 @@ export function BenchRunner({
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <button
           className="rounded border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={running}
+          disabled={running || prewarming}
+          onClick={() => {
+            void prewarm();
+          }}
+          type="button"
+        >
+          {prewarming ? "Pre-warming…" : "Pre-warm"}
+        </button>
+        <button
+          className="rounded border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={running || prewarming}
           onClick={() => {
             void runAll();
           }}
@@ -167,6 +212,9 @@ export function BenchRunner({
         >
           {running ? "Running benchmark" : "Run benchmark"}
         </button>
+        {prewarmed && !prewarming && (
+          <span className="font-mono text-xs text-[var(--color-muted)]">✓ pre-warmed</span>
+        )}
         <span className="font-mono text-xs text-[var(--color-muted)]">{statusText}</span>
       </div>
       <BenchResultsTable textLengths={textLengths} strategies={strategies} cells={cells} />

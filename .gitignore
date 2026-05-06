@@ -8,3 +8,4 @@ dist
 .vercel
 .vscode/*
 !.vscode/extensions.json
+personal-roadmap

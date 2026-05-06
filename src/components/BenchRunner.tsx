@@ -75,7 +75,7 @@ export function BenchRunner({
   textLengths = defaultTextLengths,
   strategies = defaultStrategies,
   containerWidthPx = 600,
-  warmup = 100,
+  warmup = 500,
   iterations = 1000,
 }: Props) {
   const [cells, setCells] = useState<Record<BenchCellKey, CellState>>(() =>

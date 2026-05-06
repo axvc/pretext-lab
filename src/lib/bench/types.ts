@@ -1,6 +1,7 @@
 export type BenchOpts = {
   warmup?: number;
   iterations?: number;
+  batchSize?: number;
   maxDurationMs?: number;
 };
 

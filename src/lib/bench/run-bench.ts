@@ -1,8 +1,12 @@
 import type { BenchOpts, BenchResult, BenchSpec } from "./types";
 
+// performance.now() has reduced precision (~100µs in Chrome) due to Spectre mitigations:
+// https://developer.mozilla.org/en-US/docs/Web/API/Performance/now#reduced_time_precision
+// Batching amortises the overhead: time batchSize calls together and divide by batchSize.
 const DEFAULTS = {
   warmup: 50,
   iterations: 1000,
+  batchSize: 1000,
   maxDurationMs: 5000,
 } as const;
 
@@ -23,6 +27,7 @@ export async function runBench(
 
   const warmup = opts.warmup ?? DEFAULTS.warmup;
   const iterations = opts.iterations ?? DEFAULTS.iterations;
+  const batchSize = opts.batchSize ?? DEFAULTS.batchSize;
   const maxDurationMs = opts.maxDurationMs ?? DEFAULTS.maxDurationMs;
 
   let setupMs: number | null = null;
@@ -44,8 +49,10 @@ export async function runBench(
     for (let i = 0; i < iterations; i++) {
       if (performance.now() - start > maxDurationMs) break;
       const t0 = performance.now();
-      await spec.measure();
-      timings.push(performance.now() - t0);
+      for (let j = 0; j < batchSize; j++) {
+        await spec.measure();
+      }
+      timings.push((performance.now() - t0) / batchSize);
     }
   } finally {
     await spec.teardown?.();

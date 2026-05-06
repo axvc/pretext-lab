@@ -6,6 +6,7 @@ describe("runBench", () => {
     const timings = await runBench(() => {}, {
       warmup: 5,
       iterations: 20,
+      batchSize: 1,
       maxDurationMs: 5000,
     });
     expect(timings).toHaveLength(20);
@@ -21,7 +22,7 @@ describe("runBench", () => {
       () => {
         calls += 1;
       },
-      { warmup: 7, iterations: 13, maxDurationMs: 5000 },
+      { warmup: 7, iterations: 13, batchSize: 1, maxDurationMs: 5000 },
     );
     expect(calls).toBe(7 + timings.length);
     expect(timings).toHaveLength(13);
@@ -34,7 +35,7 @@ describe("runBench", () => {
         await Promise.resolve();
         resolved += 1;
       },
-      { warmup: 2, iterations: 5, maxDurationMs: 5000 },
+      { warmup: 2, iterations: 5, batchSize: 1, maxDurationMs: 5000 },
     );
     expect(resolved).toBe(7);
   });
@@ -42,7 +43,7 @@ describe("runBench", () => {
   it("exits early when maxDurationMs is exceeded", async () => {
     const timings = await runBench(
       () => new Promise((r) => setTimeout(r, 10)),
-      { warmup: 0, iterations: 1000, maxDurationMs: 50 },
+      { warmup: 0, iterations: 1000, batchSize: 1, maxDurationMs: 50 },
     );
     expect(timings.length).toBeLessThan(1000);
   });
@@ -66,7 +67,7 @@ describe("runBench (spec form)", () => {
           order.push("teardown");
         },
       },
-      { warmup: 3, iterations: 5, maxDurationMs: 5000 },
+      { warmup: 3, iterations: 5, batchSize: 1, maxDurationMs: 5000 },
     );
 
     expect(order).toEqual(["setup", "measure", "teardown"]);
@@ -78,7 +79,7 @@ describe("runBench (spec form)", () => {
   it("setupMs is null when no setup is provided", async () => {
     const result = await runBench(
       { measure: () => {} },
-      { warmup: 1, iterations: 2, maxDurationMs: 5000 },
+      { warmup: 1, iterations: 2, batchSize: 1, maxDurationMs: 5000 },
     );
     expect(result.setupMs).toBeNull();
     expect(result.timings).toHaveLength(2);
@@ -90,7 +91,7 @@ describe("runBench (spec form)", () => {
         setup: () => new Promise<void>((resolve) => setTimeout(resolve, 50)),
         measure: () => {},
       },
-      { warmup: 0, iterations: 2, maxDurationMs: 5000 },
+      { warmup: 0, iterations: 2, batchSize: 1, maxDurationMs: 5000 },
     );
     expect(result.setupMs).not.toBeNull();
     expect(result.setupMs as number).toBeGreaterThanOrEqual(40);
@@ -105,9 +106,28 @@ describe("runBench (spec form)", () => {
           teardownCalls += 1;
         },
       },
-      { warmup: 0, iterations: 1000, maxDurationMs: 30 },
+      { warmup: 0, iterations: 1000, batchSize: 1, maxDurationMs: 30 },
     );
     expect(teardownCalls).toBe(1);
     expect(result.timings.length).toBeLessThan(1000);
+  });
+});
+
+describe("runBench (batched timing)", () => {
+  it("timings.length equals iterations regardless of batchSize", async () => {
+    const result = await runBench(
+      { measure: () => {} },
+      { warmup: 0, iterations: 8, batchSize: 50, maxDurationMs: 5000 },
+    );
+    expect(result.timings).toHaveLength(8);
+  });
+
+  it("total measure calls = warmup + iterations × batchSize", async () => {
+    let calls = 0;
+    await runBench(
+      { measure: () => { calls++; } },
+      { warmup: 3, iterations: 4, batchSize: 10, maxDurationMs: 5000 },
+    );
+    expect(calls).toBe(3 + 4 * 10);
   });
 });

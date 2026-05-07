@@ -8,49 +8,91 @@ description: How experiments in this lab are run, measured, and reported.
 
 # Methodology
 
-This page documents how experiments in this lab are run and how the numbers
-on each experiment page should be interpreted. It is also a TODO list — each
-section below is a stub I will fill in as the experiment set grows.
+This page documents how Experiment 01 was run. The test machine was a [MACHINE SPEC — e.g. MacBook Pro M4 Pro, N GB unified memory]:
+- macOS Tahoe 26.3
+- Chrome 148.0.7778.97 (arm64 native)
+- Firefox 150.0.1
+- Safari (system, build current at the time of measurement)
 
-## Warm-up runs
+Runs are performed with no other foreground applications open beyond
+the benchmark page itself.
 
-_TODO._ Why every benchmark discards the first N runs (JIT warm-up, cold
-caches, layout-engine cold start). Default warm-up count and how to override
-per experiment.
+## Run-loop construction
 
-## Iteration count and percentiles
+Each measurement uses two layers of indirection from a naïve `for` loop.
 
-_TODO._ Why p50 and p95 instead of mean. How `compare()` picks the slowest
-entry as the baseline so ratios read as "X times faster than the slowest."
+The first layer is **warm-up**: 500 untimed iterations of the operation
+under test, run before any timing begins. These exist to push the JIT
+into steady state, populate caches, and trigger any library-internal
+lazy initialisation. The 500 figure isn't arbitrary — for the simplest
+operations (Pretext arithmetic) about 50 are enough; for branchy paths
+(DOM measurement) 200–500 stabilises run-over-run. 500 is the
+conservative default.
 
-## User Timing API and `performance.now()`
+The second layer is **batched timing**. Browsers reduce
+`performance.now()` precision (Spectre mitigation) to ~100 µs in Chrome
+and ~1 ms in Firefox and Safari. Sub-microsecond operations are
+unmeasurable per call. Instead, batches of 1000 calls are timed
+collectively, and the batch time divided by 1000:
 
-_TODO._ Why `performance.now()` over `Date.now()`. When User Timing marks
-are useful for separating phases (measure vs paint vs commit) and when they
-are not.
+```js
+const BATCH = 1000
+const t0 = performance.now()
+for (let j = 0; j < BATCH; j++) sink += measure()
+const perCall = (performance.now() - t0) / BATCH
+```
 
-## CPU throttling
+The `sink` variable exists to prevent V8 from eliminating dead-code
+calls when the return value is unused. After the loop, `sink` is
+checked against an impossible value (`0xDEADBEEF`) so the optimiser
+is forced to keep the call.
 
-_TODO._ How DevTools 4× / 6× CPU throttling changes the picture. Whether to
-rely on it or run physical low-power hardware.
+Default config: `warmup: 500`, `iterations: 1000`, `batchSize: 1000`.
+Per-experiment overrides are documented at the top of each experiment
+page.
 
-## Browsers tested
+## What gets reported
 
-_TODO._ Which browsers and versions each experiment was run in. Notes on
-where engines diverge meaningfully (Safari vs Chromium vs Firefox text
-shaping, layout containment behavior, etc.).
+Each measurement reports three percentiles: **p50** (median), **p95**,
+**p99**. Means are not reported — they hide tail behaviour, which for
+some operations is where the interesting story lives.
 
-## What this lab does NOT measure
+Cross-browser benchmarks always report **three columns** — Chrome
+(Blink), Firefox (Gecko), Safari (WebKit) — never an average. Browser
+engines have different cost models — averaging across them produces
+numbers that describe no real browser.
 
-_TODO._ Bundle size impact. Memory pressure under sustained load.
-Accessibility tree integrity. SSR/hydration paths. Be explicit about every
-boundary so readers can decide whether the numbers are load-bearing for
-their use case.
+## Build conditions
 
-## How to read a result
+Every published number comes from a production build
+(`pnpm build && pnpm preview`). Dev-mode numbers are useful only for
+confirming the benchmark works at all; framework dev middleware adds
+non-uniform overhead that can double measurements on small inputs while
+disappearing on large ones (see Experiment 01 for the asymmetric case).
 
-_TODO._ A short guide to the per-experiment result panel — what counts as a
-meaningful difference vs noise, and how confidence intervals are reported
-(or not).
+DevTools are kept fully closed during measurement. DevTools-open p99s
+can be 50–70× worse than DevTools-closed p99s for sub-microsecond
+operations (also documented in Experiment 01). When this matters, it's
+called out per measurement.
+
+Incognito mode is used optionally — on the test machine, the difference
+vs. a regular profile was within ±2%. With heavier extension loads this
+could differ; if a measurement looks suspicious, an incognito re-run is
+the first sanity check.
+
+## Out of scope (for now)
+
+This lab measures single-call costs of layout-related operations across browsers. It does **not** currently measure:
+
+- Bundle-size impact of the libraries under test
+- Memory pressure under sustained load
+- Real-world rendering performance with frame-budget constraints
+- Server-side rendering and hydration paths
+- Mobile devices (any kind)
+- Accessibility-tree integrity
+
+These boundaries are explicit so readers can decide whether the numbers
+here are load-bearing for their use case. Some of them may come into
+scope for later experiments — when they do, this page will note it.
 
 </article>

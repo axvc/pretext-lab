@@ -369,26 +369,3 @@ Cross-condition variance for warm `5000ch DOM p50` (excluding DevTools open):
 Range: 232.75 → 239.40 = **+2.9%**. Target was ±15%. **Pass.**
 
 ---
-
-### Decisions
-
-1. **UX:** add a separate **Pre-warm** button to the bench runner. Surfaces cold start as a feature, not noise. Tooltip explains JIT warm-up and Pretext lazy init.
-2. **Methodology page:** sections required —
-   - Timer resolution per browser, why batching by 1000 is used.
-   - Cold start vs steady state, why pre-warm exists.
-   - DevTools advisory: close before running.
-   - Dev vs prod build advisory.
-   - Why DOM drift is reported and not engineered away.
-3. **Final results presentation:** report Chrome, Firefox, and Safari in three separate columns. Never average. Single-engine numbers are misleading.
-4. **Acceptance threshold for stable runs:** within-condition variance ≤ ±2% across runs 2+ (run 1 is always cold). Currently met.
-5. **All headline numbers come from `pnpm build && pnpm preview`, never from dev mode.** Dev-mode timings are documented as a methodology footnote, not as primary results.
-
----
-
-### TODO before publication
-
-- [ ] Implement Pre-warm button
-- [ ] Re-run Firefox in prod build (dev/prod delta likely <5%, but cleaner)
-- [ ] Write conclusion paragraph in `01-single-measurement.mdx`
-- [ ] Methodology page draft
-- [ ] Deploy to Vercel, verify Lighthouse score on homepage and experiment page

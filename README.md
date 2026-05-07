@@ -6,6 +6,7 @@ the DOM. Each experiment in this repo is one hypothesis, one method, one
 set of numbers.
 
 > Site: https://pretext-lab.azverev.com
+> GitHub: https://github.com/axvc/pretext-lab
 > Author: Artem Zverev
 
 ## Why this exists

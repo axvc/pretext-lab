@@ -5,7 +5,7 @@ a recent text-layout library that claims 300–600× faster measurement than
 the DOM. Each experiment in this repo is one hypothesis, one method, one
 set of numbers.
 
-> Site: _coming soon_
+> Site: https://pretext-lab.azverev.com
 > Author: Artem Zverev
 
 ## Why this exists

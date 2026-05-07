@@ -5,9 +5,7 @@ a recent text-layout library that claims 300–600× faster measurement than
 the DOM. Each experiment in this repo is one hypothesis, one method, one
 set of numbers.
 
-> Site: https://pretext-lab.azverev.com
-> GitHub: https://github.com/axvc/pretext-lab
-> Author: Artem Zverev
+**Site:** [pretext-lab.azverev.com](https://pretext-lab.azverev.com) · **GitHub:** [axvc/pretext-lab](https://github.com/axvc/pretext-lab) · **Author:** Artem Zverev
 
 ## Why this exists
 
@@ -65,7 +63,7 @@ runner) is a per-experiment React island invoked with `client:load`.
 `src/lib/bench/` exposes three pure functions used by every experiment
 runner:
 
-- `runBench(fn, opts)` — async; runs `warmup` discarded calls, then up to
+- `runBench(fn, opts)` — async; runs `warmup` untimed calls, then up to
   `iterations` timed calls, breaking early at `maxDurationMs`.
 - `summarize(timings)` — `{ p50, p95, p99, mean, stdDev, min, max, n }`.
 - `compare(results, opts)` — picks the slowest entry as baseline, returns
@@ -74,7 +72,7 @@ runner:
 Defaults: `warmup: 50`, `iterations: 1000`, `maxDurationMs: 5000`. Tested
 in `*.test.ts` siblings.
 
-## Layout
+## Project structure
 
 ```
 src/
@@ -82,7 +80,7 @@ src/
   content/
     experiments/     # one MDX per experiment
   content.config.ts  # collection schema
-  layouts/           # BaseLayout, ExperimentLayout
+  layouts/           # BaseLayout, ExperimentLayout, ProseLayout
   lib/bench/         # the benchmarking primitives
   pages/             # index.astro, methodology.mdx, experiments/[...slug].astro
   styles/global.css  # Tailwind 4 + theme tokens

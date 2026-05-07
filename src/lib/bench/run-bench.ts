@@ -38,10 +38,11 @@ export async function runBench(
   }
 
   const timings: number[] = [];
+  let sink = 0;
 
   try {
     for (let i = 0; i < warmup; i++) {
-      await spec.measure();
+      sink += Number(await spec.measure()) | 0;
     }
 
     const start = performance.now();
@@ -50,10 +51,11 @@ export async function runBench(
       if (performance.now() - start > maxDurationMs) break;
       const t0 = performance.now();
       for (let j = 0; j < batchSize; j++) {
-        await spec.measure();
+        sink += Number(await spec.measure()) | 0;
       }
       timings.push((performance.now() - t0) / batchSize);
     }
+    if (sink === 0xDEADBEEF) console.log(sink);
   } finally {
     await spec.teardown?.();
   }

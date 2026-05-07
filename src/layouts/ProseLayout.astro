@@ -1,0 +1,61 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+type Props = { title: string; description?: string };
+
+const { title, description } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <article class="mx-auto max-w-3xl px-6 py-16">
+    <div class="prose-experiment">
+      <slot />
+    </div>
+  </article>
+</BaseLayout>
+
+<style is:global>
+  .prose-experiment {
+    line-height: 1.7;
+  }
+  .prose-experiment h1 {
+    font-size: 1.875rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+  }
+  .prose-experiment h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .prose-experiment p {
+    margin-bottom: 1rem;
+  }
+  .prose-experiment ul {
+    list-style: disc;
+    padding-left: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .prose-experiment li {
+    margin-bottom: 0.25rem;
+  }
+  .prose-experiment code {
+    background: var(--color-accent-soft);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+  .prose-experiment pre {
+    background: #111;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+  }
+  .prose-experiment pre code {
+    background: transparent;
+    padding: 0;
+  }
+</style>

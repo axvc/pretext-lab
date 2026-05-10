@@ -1,24 +1,28 @@
 ---
 const links = [
-  { href: "/#experiments", label: "Experiments" },
-  { href: "/methodology", label: "Methodology" },
-  { href: "https://github.com/axvc/pretext-lab", label: "GitHub", external: true },
+  { href: "/#experiments", label: "Experiments", active: true },
+  { href: "/methodology", label: "Methodology", active: false },
+  { href: "https://github.com/axvc/pretext-lab", label: "GitHub", external: true, active: false },
 ];
 ---
 
-<header class="border-b border-[var(--color-border)]">
-  <div class="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
-    <a href="/" class="font-mono text-sm tracking-tight">
-      <span class="text-[var(--color-accent)]">●</span> pretext.lab
+<header>
+  <div class="flex items-center justify-between px-6 lg:px-24 py-4">
+    <a href="/" class="flex items-center gap-2 font-mono text-sm text-[var(--color-fg)] hover:no-underline">
+      <span class="inline-block w-[6px] h-[6px] rounded-[2px] bg-[var(--color-accent)] shrink-0"></span>
+      pretext.lab
     </a>
-    <nav class="flex items-center gap-6 text-sm text-[var(--color-muted)]">
+    <nav class="flex items-center gap-8 font-mono text-sm">
       {
         links.map((link) => (
           <a
             href={link.href}
             target={link.external ? "_blank" : undefined}
             rel={link.external ? "noopener noreferrer" : undefined}
-            class="hover:text-[var(--color-fg)]"
+            class:list={[
+              "hover:no-underline transition-colors",
+              link.active ? "text-[var(--color-fg)]" : "text-[var(--color-muted)] hover:text-[var(--color-fg)]",
+            ]}
           >
             {link.label}
           </a>

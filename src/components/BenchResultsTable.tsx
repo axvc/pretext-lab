@@ -9,19 +9,13 @@ export type CellState =
 
 export type BenchCellKey = `${StrategyName}-${number}`;
 
-type Props = {
-  textLengths: number[];
-  strategies: StrategyName[];
-  cells: Record<BenchCellKey, CellState>;
-};
-
 const strategyLabels: Record<StrategyName, string> = {
   dom: "DOM",
   canvas: "Canvas",
   pretext: "Pretext",
 };
 
-const summaryRows: Array<[string, keyof Pick<BenchSummary, "p50" | "p95" | "p99">]> = [
+const metrics: Array<[string, keyof Pick<BenchSummary, "p50" | "p95" | "p99">]> = [
   ["p50", "p50"],
   ["p95", "p95"],
   ["p99", "p99"],
@@ -35,89 +29,95 @@ function formatMicros(ms: number): string {
   return `${(ms * 1000).toFixed(2)} µs`;
 }
 
-function statusLabel(cell: CellState): string {
-  if (cell.kind === "running") {
-    return cell.phase === "warmup" ? "warming up" : "running";
-  }
-  if (cell.kind === "error") return cell.message;
-  if (cell.kind === "done") return "done";
-  return "queued";
-}
+type SingleSizeProps = {
+  length: number;
+  strategies: StrategyName[];
+  cells: Record<BenchCellKey, CellState>;
+  iterations?: number;
+};
 
-function PrepareCell({ cell }: { cell: CellState }) {
-  if (cell.kind === "done") {
-    return <span className="font-mono tabular-nums">{formatMicros(cell.setupMs)}</span>;
-  }
+export function BenchResultsSingle({ length, strategies, cells, iterations }: SingleSizeProps) {
+  const bestP50 = strategies.reduce<number | null>((best, s) => {
+    const cell = cells[keyFor(s, length)];
+    if (cell?.kind === "done") {
+      return best === null || cell.summary.p50 < best ? cell.summary.p50 : best;
+    }
+    return best;
+  }, null);
 
-  if (cell.kind === "error") {
-    return <span className="text-xs text-red-500">{cell.message}</span>;
-  }
-
-  return <span className="text-xs text-[var(--color-muted)]">{statusLabel(cell)}</span>;
-}
-
-function ResultCell({ cell }: { cell: CellState }) {
-  if (cell.kind === "done") {
-    return (
-      <div className="grid gap-1 font-mono text-xs tabular-nums">
-        {summaryRows.map(([label, metric]) => (
-          <div className="flex min-w-32 justify-between gap-4" key={metric}>
-            <span className="text-[var(--color-muted)]">{label}</span>
-            <span>{formatMicros(cell.summary[metric])}</span>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (cell.kind === "error") {
-    return <span className="text-xs text-red-500">{cell.message}</span>;
-  }
-
-  return <span className="text-xs text-[var(--color-muted)]">{statusLabel(cell)}</span>;
-}
-
-export function BenchResultsTable({ textLengths, strategies, cells }: Props) {
-  const showPrepareRow = strategies.includes("pretext");
+  const caption = iterations
+    ? `Results · ${length} chars · ${iterations.toLocaleString()} iterations`
+    : `Results · ${length} chars`;
 
   return (
-    <div className="not-prose my-6 overflow-x-auto rounded-md border border-[var(--color-border)]">
-      <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-        <thead className="border-b border-[var(--color-border)] text-xs uppercase tracking-wide text-[var(--color-muted)]">
-          <tr>
-            <th className="w-40 px-4 py-3 font-mono font-medium">strategy</th>
-            {textLengths.map((length) => (
-              <th className="border-l border-[var(--color-border)] px-4 py-3 font-mono font-medium" key={length}>
-                {length} chars
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[var(--color-border)]">
-          {showPrepareRow && (
-            <tr className="bg-[var(--color-accent-soft)]">
-              <th className="px-4 py-4 font-mono text-xs font-medium uppercase tracking-wide text-[var(--color-muted)]">
-                Pretext prepare
-              </th>
-              {textLengths.map((length) => (
-                <td className="border-l border-[var(--color-border)] px-4 py-4 align-top" key={length}>
-                  <PrepareCell cell={cells[keyFor("pretext", length)] ?? { kind: "pending" }} />
-                </td>
-              ))}
-            </tr>
-          )}
-          {strategies.map((strategy) => (
-            <tr key={strategy}>
-              <th className="px-4 py-4 font-medium">{strategyLabels[strategy]}</th>
-              {textLengths.map((length) => (
-                <td className="border-l border-[var(--color-border)] px-4 py-4 align-top" key={length}>
-                  <ResultCell cell={cells[keyFor(strategy, length)] ?? { kind: "pending" }} />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div>
+      <p
+        className="font-mono text-[11px] uppercase tracking-[1.6px] mb-3"
+        style={{ color: "var(--color-muted)" }}
+      >
+        {caption}
+      </p>
+
+      <div style={{ borderTop: "1px solid var(--color-border)" }}>
+        {/* Column headers */}
+        <div
+          className="flex font-mono text-[11px] pt-2 pb-2"
+          style={{ color: "var(--color-dim)", borderBottom: "1px solid var(--color-border)" }}
+        >
+          <span className="flex-1" />
+          <span className="w-28 text-right">p50</span>
+          <span className="w-28 text-right">p95</span>
+          <span className="w-28 text-right">p99</span>
+        </div>
+
+        {/* Strategy rows */}
+        {strategies.map((strategy) => {
+          const cell = cells[keyFor(strategy, length)] ?? { kind: "pending" as const };
+          const isBest =
+            cell.kind === "done" &&
+            bestP50 !== null &&
+            cell.summary.p50 === bestP50 &&
+            strategies.length > 1;
+
+          return (
+            <div
+              key={strategy}
+              className="flex items-center font-mono text-[13px] py-3"
+              style={{ borderBottom: "1px solid var(--color-border)", color: "var(--color-fg)" }}
+            >
+              <span className="flex-1">{strategyLabels[strategy]}</span>
+
+              {cell.kind === "done" ? (
+                metrics.map(([, metric]) => (
+                  <span
+                    key={metric}
+                    className="w-28 text-right tabular-nums"
+                    style={metric === "p50" && isBest ? { color: "var(--color-accent)" } : {}}
+                  >
+                    {formatMicros(cell.summary[metric])}
+                  </span>
+                ))
+              ) : cell.kind === "running" ? (
+                <>
+                  <span className="w-28 text-right font-mono text-[11px]" style={{ color: "var(--color-dim)" }}>
+                    {cell.phase === "warmup" ? "warming…" : "running…"}
+                  </span>
+                  <span className="w-28 text-right" style={{ color: "var(--color-dim)" }}>—</span>
+                  <span className="w-28 text-right" style={{ color: "var(--color-dim)" }}>—</span>
+                </>
+              ) : cell.kind === "error" ? (
+                <span className="flex-1 text-right text-[11px]" style={{ color: "var(--color-accent)" }}>
+                  {cell.message}
+                </span>
+              ) : (
+                metrics.map(([, metric]) => (
+                  <span key={metric} className="w-28 text-right" style={{ color: "var(--color-dim)" }}>—</span>
+                ))
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

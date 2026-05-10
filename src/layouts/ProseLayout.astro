@@ -8,7 +8,7 @@ const { title, description } = frontmatter;
 ---
 
 <BaseLayout title={title} description={description}>
-  <article class="mx-auto max-w-3xl px-6 py-16">
+  <article class="px-6 lg:px-24 py-16">
     <div class="prose-experiment">
       <slot />
     </div>
@@ -18,22 +18,45 @@ const { title, description } = frontmatter;
 <style is:global>
   .prose-experiment {
     line-height: 1.7;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--color-muted);
+    max-width: 720px;
   }
   .prose-experiment h1 {
-    font-size: 1.875rem;
-    font-weight: 600;
+    font-family: var(--font-serif);
+    font-size: 2.5rem;
+    font-weight: 400;
+    font-variation-settings: 'SOFT' 0, 'WONK' 1;
+    letter-spacing: -0.02em;
+    color: var(--color-fg);
     margin-bottom: 1.5rem;
+    line-height: 1.05;
   }
   .prose-experiment h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-top: 2.5rem;
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    font-variation-settings: 'SOFT' 0, 'WONK' 1;
+    letter-spacing: -0.02em;
+    color: var(--color-fg);
+    margin-top: 3rem;
     margin-bottom: 0.75rem;
+  }
+  .prose-experiment h3 {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-fg);
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
   }
   .prose-experiment p {
     margin-bottom: 1rem;
   }
-  .prose-experiment ul {
+  .prose-experiment ul, .prose-experiment ol {
     list-style: disc;
     padding-left: 1.5rem;
     margin-bottom: 1rem;
@@ -44,13 +67,12 @@ const { title, description } = frontmatter;
   .prose-experiment code {
     background: var(--color-accent-soft);
     padding: 0.1em 0.35em;
-    border-radius: 3px;
     font-size: 0.9em;
+    color: var(--color-fg);
   }
   .prose-experiment pre {
-    background: #111;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 6px;
     padding: 1rem;
     overflow-x: auto;
     margin: 1rem 0;

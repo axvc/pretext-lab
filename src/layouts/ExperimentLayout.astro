@@ -5,39 +5,44 @@ type Frontmatter = {
   title: string;
   summary: string;
   order: number;
-  status: "draft" | "published";
+  status: "draft" | "published" | "planned";
   apis: string[];
+  publishedDate?: string;
 };
 
 type Props = { frontmatter: Frontmatter };
 
 const { frontmatter } = Astro.props;
+const breadcrumb = `Experiments / ${String(frontmatter.order).padStart(2, "0")} — ${frontmatter.title}`;
 ---
 
 <BaseLayout title={frontmatter.title} description={frontmatter.summary}>
-  <article class="mx-auto max-w-3xl px-6 py-16">
-    <header class="border-b border-[var(--color-border)] pb-8 mb-10">
-      <div class="font-mono text-xs uppercase tracking-wider text-[var(--color-muted)] mb-3">
-        Experiment {String(frontmatter.order).padStart(2, "0")}
-        {
-          frontmatter.status === "draft" && (
-            <span class="ml-3 text-[var(--color-accent)]">draft</span>
-          )
-        }
-      </div>
-      <h1 class="text-3xl font-semibold mb-3">{frontmatter.title}</h1>
-      <p class="text-[var(--color-muted)]">{frontmatter.summary}</p>
+  <article class="px-6 lg:px-24 py-16">
+    <header class="mb-12">
+      <p class="font-mono text-[12px] text-[var(--color-muted)] mb-8">
+        {breadcrumb}
+      </p>
+      <h1
+        class="font-serif text-[40px] lg:text-[48px] leading-[1.05] tracking-[-0.02em] text-[var(--color-fg)] mb-4"
+        style="font-variation-settings: 'SOFT' 0, 'WONK' 1"
+      >
+        {frontmatter.title}
+      </h1>
+      <p class="font-mono text-[14px] text-[var(--color-muted)] max-w-[720px]">
+        {frontmatter.summary}
+      </p>
       {
         frontmatter.apis.length > 0 && (
-          <ul class="mt-5 flex flex-wrap gap-2">
+          <ul class="mt-4 flex flex-wrap gap-2">
             {frontmatter.apis.map((api) => (
-              <li class="font-mono text-xs px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-muted)]">
+              <li class="font-mono text-[11px] px-2 py-1 border border-[var(--color-border)] text-[var(--color-dim)]">
                 {api}
               </li>
             ))}
           </ul>
         )
       }
+      <hr class="border-0 border-t border-[var(--color-border)] mt-8" />
     </header>
     <div class="prose-experiment">
       <slot />
@@ -48,26 +53,50 @@ const { frontmatter } = Astro.props;
 <style is:global>
   .prose-experiment {
     line-height: 1.7;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    color: var(--color-muted);
+    max-width: 720px;
   }
   .prose-experiment h2 {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-top: 2.5rem;
+    font-family: var(--font-serif);
+    font-size: 1.5rem;
+    font-weight: 400;
+    font-variation-settings: 'SOFT' 0, 'WONK' 1;
+    letter-spacing: -0.02em;
+    color: var(--color-fg);
+    margin-top: 3rem;
     margin-bottom: 0.75rem;
+  }
+  .prose-experiment h3 {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--color-fg);
+    margin-top: 2rem;
+    margin-bottom: 0.5rem;
   }
   .prose-experiment p {
     margin-bottom: 1rem;
   }
+  .prose-experiment ul, .prose-experiment ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+  }
+  .prose-experiment li {
+    margin-bottom: 0.25rem;
+  }
   .prose-experiment code {
     background: var(--color-accent-soft);
     padding: 0.1em 0.35em;
-    border-radius: 3px;
     font-size: 0.9em;
+    color: var(--color-fg);
   }
   .prose-experiment pre {
-    background: #111;
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
-    border-radius: 6px;
     padding: 1rem;
     overflow-x: auto;
     margin: 1rem 0;

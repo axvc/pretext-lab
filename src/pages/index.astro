@@ -6,66 +6,85 @@ import ExperimentCard from "@/components/ExperimentCard.astro";
 const experiments = (await getCollection("experiments")).sort(
   (a, b) => a.data.order - b.data.order,
 );
+
+const publishedCount = experiments.filter((e) => e.data.status === "published").length;
+const countLabel = `${publishedCount} published · more in progress`;
 ---
 
 <BaseLayout
   title="Pretext.lab"
-  description="A research-first benchmarking lab for Pretext.js. One hypothesis, one methodology, one set of honest numbers per experiment."
+  description="A public benchmarking lab for JavaScript text-layout strategies — DOM, Canvas, Pretext.js — measured across browser engines with rigorous methodology and reproducible numbers."
 >
-  <section class="mx-auto max-w-3xl px-6 pt-20 pb-16">
-    <p class="font-mono text-xs uppercase tracking-wider text-[var(--color-accent)] mb-6">
-      Pretext.js benchmark lab
+  <!-- Hero -->
+  <section class="px-6 lg:px-24 pt-24 lg:pt-32 pb-24">
+    <p class="font-mono text-[11px] uppercase tracking-[1.6px] text-[var(--color-muted)] mb-6">
+      Research lab · Open source
     </p>
-    <h1 class="text-4xl md:text-5xl font-semibold leading-tight mb-6">
-      I found a library that promises 300–600× faster text layout. I measured
-      it. Here's what came out.
+
+    <h1
+      class="font-serif text-[48px] md:text-[64px] lg:text-[72px] leading-[1.05] tracking-[-0.02em] text-[var(--color-fg)] max-w-[800px] mb-8"
+      style="font-variation-settings: 'SOFT' 0, 'WONK' 1"
+    >
+      Measuring the cost of text layout in the browser.
     </h1>
-    <p class="text-[var(--color-muted)] text-lg max-w-2xl mb-8">
-      Each experiment below is one hypothesis, one method, one set of numbers.
-      Run them yourself in the browser. The methodology page documents what
-      was — and was not — measured.
+
+    <hr class="border-0 border-t border-[var(--color-border)] w-[280px] mb-8" />
+
+    <p class="font-mono text-[14px] leading-[1.6] text-[var(--color-muted)] max-w-[580px] mb-10">
+      A public benchmarking lab for JavaScript text-layout strategies — DOM, Canvas, Pretext.js —
+      measured across browser engines with rigorous methodology and reproducible numbers.
     </p>
-    <div class="flex gap-4 text-sm">
+
+    <div class="flex flex-wrap gap-4">
       <a
-        href="/methodology"
-        class="border border-[var(--color-border)] hover:border-[var(--color-accent)] rounded px-4 py-2 hover:no-underline"
+        href="/#experiments"
+        class="border border-[var(--color-fg)] px-4 py-3 font-mono text-[14px] text-[var(--color-fg)] hover:no-underline hover:opacity-70 transition-opacity"
       >
-        Read the methodology →
+        [ View experiments → ]
       </a>
       <a
-        href="https://github.com/axvc/pretext-lab"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="border border-[var(--color-border)] hover:border-[var(--color-accent)] rounded px-4 py-2 hover:no-underline"
+        href="/methodology"
+        class="border border-[var(--color-border)] px-4 py-3 font-mono text-[14px] text-[var(--color-muted)] hover:no-underline hover:opacity-70 transition-opacity"
       >
-        View source on GitHub
+        [ Methodology ]
       </a>
     </div>
   </section>
 
-  <section id="experiments" class="mx-auto max-w-5xl px-6 pb-24">
-    <div class="border-t border-[var(--color-border)] pt-12">
-      <h2 class="font-mono text-xs uppercase tracking-wider text-[var(--color-muted)] mb-8">
-        Experiments
-      </h2>
-      {
-        experiments.length === 0 ? (
-          <p class="text-[var(--color-muted)]">No experiments yet.</p>
-        ) : (
-          <div class="grid gap-4 md:grid-cols-2">
-            {experiments.map((entry) => (
-              <ExperimentCard
-                href={`/experiments/${entry.id}`}
-                order={entry.data.order}
-                title={entry.data.title}
-                summary={entry.data.summary}
-                status={entry.data.status}
-                apis={entry.data.apis}
-              />
-            ))}
-          </div>
-        )
-      }
-    </div>
+  <!-- Experiments index -->
+  <section id="experiments" class="px-6 lg:px-24 pb-32">
+    <h2
+      class="font-serif text-[40px] lg:text-[48px] leading-[1.05] tracking-[-0.02em] text-[var(--color-fg)] mb-3"
+      style="font-variation-settings: 'SOFT' 0, 'WONK' 1"
+    >
+      Experiments
+    </h2>
+    <p class="font-mono text-[14px] text-[var(--color-muted)] mb-6">
+      {countLabel}
+    </p>
+
+    <hr class="border-0 border-t border-[var(--color-border)] mb-0" />
+
+    {
+      experiments.length === 0 ? (
+        <p class="font-mono text-[var(--color-muted)] py-8">No experiments yet.</p>
+      ) : (
+        <div>
+          {experiments.map((entry) => (
+            <ExperimentCard
+              href={`/experiments/${entry.id}`}
+              order={entry.data.order}
+              title={entry.data.title}
+              summary={entry.data.summary}
+              status={entry.data.status}
+              apis={entry.data.apis}
+              publishedDate={entry.data.publishedDate}
+              quote={entry.data.quote}
+              detail={entry.data.detail}
+            />
+          ))}
+        </div>
+      )
+    }
   </section>
 </BaseLayout>

@@ -10,8 +10,11 @@ const experiments = defineCollection({
     title: z.string(),
     summary: z.string(),
     order: z.number(),
-    status: z.enum(["draft", "published"]),
+    status: z.enum(["draft", "published", "planned"]),
     apis: z.array(z.string()),
+    publishedDate: z.string().optional(),
+    quote: z.string().optional(),
+    detail: z.string().optional(),
   }),
 });
 

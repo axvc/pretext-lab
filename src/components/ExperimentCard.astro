@@ -4,48 +4,108 @@ type Props = {
   order: number;
   title: string;
   summary: string;
-  status: "draft" | "published";
+  status: "draft" | "published" | "planned";
   apis: string[];
+  publishedDate?: string;
+  quote?: string;
+  detail?: string;
 };
 
-const { href, order, title, summary, status, apis } = Astro.props;
-const isDraft = status === "draft";
-const Wrapper = isDraft ? "div" : "a";
-const wrapperProps = isDraft ? {} : { href };
+const { href, order, title, summary, status, publishedDate, quote, detail } = Astro.props;
+
+const orderLabel = `Experiment ${String(order).padStart(2, "0")}`;
+
+let captionSuffix = "";
+if (status === "published" && publishedDate) {
+  captionSuffix = `· Published ${publishedDate}`;
+} else if (status === "draft") {
+  captionSuffix = "· In progress";
+} else if (status === "planned") {
+  captionSuffix = "· Planned";
+}
+
+const titleColor =
+  status === "published"
+    ? "text-[var(--color-fg)]"
+    : status === "draft"
+      ? "text-[var(--color-muted)]"
+      : "text-[var(--color-dim)]";
+
+const quoteColor =
+  status === "published" ? "text-[var(--color-muted)]" : "text-[var(--color-dim)]";
 ---
 
-<Wrapper
-  {...wrapperProps}
-  class:list={[
-    "block border border-[var(--color-border)] rounded-lg p-6 transition-colors",
-    isDraft
-      ? "opacity-60 cursor-default"
-      : "hover:border-[var(--color-accent)] hover:no-underline",
-  ]}
->
-  <div class="flex items-baseline justify-between mb-3">
-    <span class="font-mono text-xs uppercase tracking-wider text-[var(--color-muted)]">
-      #{String(order).padStart(2, "0")}
-    </span>
+<div class="border-b border-[var(--color-border)] py-8 flex gap-12">
+  <!-- Left column -->
+  <div class="w-[360px] shrink-0 flex flex-col gap-3">
+    <p class="font-mono text-[11px] uppercase tracking-[1.6px] text-[var(--color-dim)]">
+      {orderLabel} {captionSuffix}
+    </p>
+    <h3
+      class:list={[
+        "font-serif text-[28px] leading-[1.15] tracking-[-0.01em]",
+        titleColor,
+      ]}
+      style="font-variation-settings: 'SOFT' 0, 'WONK' 1"
+    >
+      {title}
+    </h3>
     {
-      isDraft && (
-        <span class="font-mono text-xs uppercase tracking-wider text-[var(--color-accent)]">
-          coming soon
-        </span>
+      detail && (
+        <p class:list={["font-mono text-[13px]", status === "published" ? "text-[var(--color-muted)]" : "text-[var(--color-dim)]"]}>
+          {detail}
+        </p>
+      )
+    }
+    {
+      !detail && (
+        <p class:list={["font-mono text-[13px]", status === "published" ? "text-[var(--color-muted)]" : "text-[var(--color-dim)]"]}>
+          {summary}
+        </p>
       )
     }
   </div>
-  <h3 class="text-lg font-semibold mb-2">{title}</h3>
-  <p class="text-sm text-[var(--color-muted)] mb-4">{summary}</p>
-  {
-    apis.length > 0 && (
-      <ul class="flex flex-wrap gap-2">
-        {apis.map((api) => (
-          <li class="font-mono text-xs px-2 py-0.5 rounded border border-[var(--color-border)] text-[var(--color-muted)]">
-            {api}
-          </li>
-        ))}
-      </ul>
-    )
-  }
-</Wrapper>
+
+  <!-- Right column -->
+  <div class="flex-1 flex flex-col justify-between gap-8">
+    {
+      quote && (
+        <p class:list={["font-mono text-[13px] leading-[1.55] max-w-[560px]", quoteColor]}>
+          "{quote}"
+        </p>
+      )
+    }
+    {
+      !quote && (
+        <p class:list={["font-mono text-[13px] leading-[1.55] max-w-[560px]", quoteColor]}>
+          {summary}
+        </p>
+      )
+    }
+
+    <div class="flex gap-3">
+      {
+        status === "published" && href ? (
+          <>
+            <a
+              href={href}
+              class="border border-[var(--color-fg)] px-[14px] py-[10px] font-mono text-[13px] text-[var(--color-fg)] hover:no-underline hover:opacity-70 transition-opacity"
+            >
+              [ Read article → ]
+            </a>
+            <a
+              href={`${href}#bench`}
+              class="border border-[var(--color-fg)] px-[14px] py-[10px] font-mono text-[13px] text-[var(--color-fg)] hover:no-underline hover:opacity-70 transition-opacity"
+            >
+              [ Run benchmark → ]
+            </a>
+          </>
+        ) : status === "draft" ? (
+          <span class="font-mono text-[12px] text-[var(--color-dim)]">[ in progress ]</span>
+        ) : (
+          <span class="font-mono text-[12px] text-[var(--color-dim)]">[ planned ]</span>
+        )
+      }
+    </div>
+  </div>
+</div>

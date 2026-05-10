@@ -11,3 +11,7 @@ dist
 personal-roadmap.md
 PRD.md
 llm-project-instructions.md
+
+# LLM context layer — local only
+.wiki/
+.claude/commands/

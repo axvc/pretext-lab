@@ -117,6 +117,25 @@ export function BenchResultsSingle({ length, strategies, cells, iterations }: Si
             </div>
           );
         })}
+
+        {/* Pretext prepare row — shows cold-start cost (setupMs) */}
+        {strategies.includes("pretext") && (() => {
+          const cell = cells[keyFor("pretext", length)];
+          if (cell?.kind !== "done" && cell?.kind !== "running") return null;
+          return (
+            <div
+              className="flex items-center font-mono text-[12px] py-2"
+              style={{ color: "var(--color-dim)", borderBottom: "1px solid var(--color-border)" }}
+            >
+              <span className="flex-1">prepare</span>
+              <span className="w-28 text-right tabular-nums">
+                {cell.kind === "done" ? formatMicros(cell.setupMs) : "…"}
+              </span>
+              <span className="w-28" />
+              <span className="w-28" />
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

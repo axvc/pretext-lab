@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { runBench } from "@/lib/bench/run-bench";
 import { summarize } from "@/lib/bench/summarize";
 import { loremOfLength } from "@/lib/bench/text-fixtures";
@@ -75,6 +75,22 @@ async function waitForFonts(): Promise<void> {
   }
 }
 
+function detectBrowserName(): string {
+  const ua = navigator.userAgent;
+  if (/Firefox/.test(ua)) return "Firefox";
+  if (/Edg\//.test(ua)) return "Edge";
+  if (/Chrome\//.test(ua)) return "Chrome";
+  if (/Safari\//.test(ua)) return "Safari";
+  return "Unknown";
+}
+
+function measureTimerPrecisionMs(): number {
+  const t0 = performance.now();
+  let t1 = t0;
+  while (t1 === t0) t1 = performance.now();
+  return t1 - t0;
+}
+
 export function BenchRunner({
   textLengths = defaultTextLengths,
   strategies = defaultStrategies,
@@ -90,6 +106,18 @@ export function BenchRunner({
   const [activeStrategies, setActiveStrategies] = useState<Set<StrategyName>>(
     new Set(strategies),
   );
+  const [preWarmState, setPreWarmState] = useState<"idle" | "running" | "done">("idle");
+  const [browserWarning, setBrowserWarning] = useState<{
+    browserName: string;
+    precisionMs: number;
+  } | null>(null);
+
+  useEffect(() => {
+    const precisionMs = measureTimerPrecisionMs();
+    if (precisionMs >= 2) {
+      setBrowserWarning({ browserName: detectBrowserName(), precisionMs });
+    }
+  }, []);
 
   function hasDataFor(length: number): boolean {
     return [...activeStrategies].some((s) => cells[keyFor(s, length)]?.kind === "done");
@@ -137,67 +165,112 @@ export function BenchRunner({
     });
   }
 
+  async function runStrategyForLengths(strategyName: StrategyName, lengths: number[]) {
+    await waitForFonts();
+    for (const length of lengths) {
+      const key = keyFor(strategyName, length);
+      try {
+        const text = loremOfLength(length);
+        const strategy = strategyMap[strategyName];
+
+        setCells((current) => ({ ...current, [key]: { kind: "running", phase: "warmup" } }));
+        const { setupMs, measurer } = await strategy.prepareForText(text);
+        setCells((current) => ({ ...current, [key]: { kind: "running", phase: "iter" } }));
+
+        const { timings } = await runBench(
+          {
+            measure: () => { measurer.measure(containerWidthPx); },
+            teardown: () => { measurer.teardown?.(); },
+          },
+          {
+            warmup,
+            iterations,
+            onProgress: (current, total, phase) => {
+              setCells((c) => ({
+                ...c,
+                [key]: { kind: "running", phase, progress: { current, total } },
+              }));
+            },
+          },
+        );
+
+        setCells((current) => ({
+          ...current,
+          [key]: { kind: "done", summary: summarize(timings), setupMs },
+        }));
+      } catch (error) {
+        setCells((current) => ({
+          ...current,
+          [key]: { kind: "error", message: errorMessage(error) },
+        }));
+      }
+      await waitForIdle();
+    }
+  }
+
   async function runBenchmark(lengths: number[]) {
     setRunning(true);
+    setPreWarmState("idle");
     setCells(createInitialCells(strategies, textLengths));
-    await waitForFonts();
-
     for (const strategyName of strategies) {
       if (!activeStrategies.has(strategyName)) continue;
-      for (const length of lengths) {
-        const key = keyFor(strategyName, length);
-        try {
-          const text = loremOfLength(length);
-          const strategy = strategyMap[strategyName];
-
-          setCells((current) => ({ ...current, [key]: { kind: "running", phase: "warmup" } }));
-          const { setupMs, measurer } = await strategy.prepareForText(text);
-          setCells((current) => ({ ...current, [key]: { kind: "running", phase: "iter" } }));
-
-          const { timings } = await runBench(
-            {
-              measure: () => { measurer.measure(containerWidthPx); },
-              teardown: () => { measurer.teardown?.(); },
-            },
-            { warmup, iterations },
-          );
-
-          setCells((current) => ({
-            ...current,
-            [key]: { kind: "done", summary: summarize(timings), setupMs },
-          }));
-        } catch (error) {
-          setCells((current) => ({
-            ...current,
-            [key]: { kind: "error", message: errorMessage(error) },
-          }));
-        }
-        await waitForIdle();
-      }
+      await runStrategyForLengths(strategyName, lengths);
     }
+    setRunning(false);
+  }
 
+  async function retryStrategy(strategyName: StrategyName) {
+    if (running) return;
+    setCells((prev) => {
+      const next = { ...prev };
+      for (const length of textLengths) {
+        next[keyFor(strategyName, length)] = { kind: "pending" };
+      }
+      return next;
+    });
+    setRunning(true);
+    await runStrategyForLengths(strategyName, textLengths);
     setRunning(false);
   }
 
   async function preWarm() {
     setRunning(true);
+    setPreWarmState("running");
     await waitForFonts();
     for (const strategyName of strategies) {
       if (!activeStrategies.has(strategyName)) continue;
-      for (const length of [selectedLength]) {
-        const text = loremOfLength(length);
-        const strategy = strategyMap[strategyName];
-        try {
+      const text = loremOfLength(selectedLength);
+      const strategy = strategyMap[strategyName];
+      try {
+        for (let i = 0; i < 4; i++) {
           const { measurer } = await strategy.prepareForText(text);
-          await runBench(
-            { measure: () => { measurer.measure(containerWidthPx); }, teardown: () => { measurer.teardown?.(); } },
-            { warmup: 100, iterations: 1 },
-          );
-        } catch {}
-        await waitForIdle();
-      }
+          measurer.teardown?.();
+          await waitForIdle();
+        }
+        const { measurer } = await strategy.prepareForText(text);
+        await runBench(
+          { measure: () => { measurer.measure(containerWidthPx); }, teardown: () => { measurer.teardown?.(); } },
+          { warmup: 100, iterations: 1 },
+        );
+      } catch {}
+      await waitForIdle();
     }
     setRunning(false);
+    setPreWarmState("done");
+  }
+
+  // Reads live progress from the first running cell for selectedLength.
+  function runBenchmarkBtnLabel(): string {
+    if (!running) return "[ Run benchmark ]";
+    for (const s of strategies) {
+      const cell = cells[keyFor(s, selectedLength)];
+      if (cell?.kind === "running" && cell.progress) {
+        return cell.phase === "warmup"
+          ? `Warming up… ${cell.progress.current} / ${cell.progress.total}`
+          : `Running… ${cell.progress.current} / ${cell.progress.total}`;
+      }
+    }
+    return "Running…";
   }
 
   const statusText = running
@@ -212,6 +285,38 @@ export function BenchRunner({
         className="rounded-lg p-8 max-w-[700px]"
         style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
       >
+        {/* Unsupported browser warning */}
+        {browserWarning && (
+          <div
+            className="rounded-lg mb-6"
+            style={{ background: "var(--color-surface)", border: "1px solid var(--color-border)" }}
+          >
+            <div className="p-5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p
+                  className="font-mono text-[10px] uppercase tracking-[1.6px]"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  Bench · Detected: {browserWarning.browserName}
+                </p>
+                <p className="font-mono text-[10px]" style={{ color: "var(--color-muted)" }}>?</p>
+              </div>
+              <hr style={{ border: "none", borderTop: "1px solid var(--color-border)", margin: 0 }} />
+              <p
+                className="font-mono text-[12px] leading-[1.5]"
+                style={{ color: "var(--color-error)" }}
+              >
+                Browser timer precision insufficient (~{Math.round(browserWarning.precisionMs)} ms).
+                Results may be unreliable. Run in Chrome / Firefox / Safari for best precision.
+              </p>
+              <hr style={{ border: "none", borderTop: "1px solid var(--color-border)", margin: 0 }} />
+              <p className="font-mono text-[10px]" style={{ color: "var(--color-dim)" }}>
+                Run controls remain enabled below.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <p
@@ -240,21 +345,7 @@ export function BenchRunner({
                   type="button"
                   disabled={running}
                   onClick={() => setSelectedLength(length)}
-                  className="w-16 h-8 font-mono text-[13px] disabled:cursor-not-allowed transition-colors"
-                  style={{
-                    border: isSelected
-                      ? "1px solid var(--color-accent)"
-                      : hasDone
-                        ? "1px solid var(--color-muted)"
-                        : "1px solid var(--color-border)",
-                    color: isSelected
-                      ? "var(--color-fg)"
-                      : hasDone || isRunningThis
-                        ? "var(--color-muted)"
-                        : "var(--color-dim)",
-                    background: "transparent",
-                    cursor: running ? "not-allowed" : "pointer",
-                  }}
+                  className={`btn-size w-16 h-8 font-mono text-[13px] transition-colors${isSelected ? " is-selected" : hasDone ? " has-data" : ""}`}
                 >
                   {isRunningThis && running ? "…" : length}
                 </button>
@@ -272,23 +363,21 @@ export function BenchRunner({
                   type="button"
                   disabled={running}
                   onClick={() => toggleStrategy(s)}
-                  className="flex items-center gap-2 font-mono text-[13px] disabled:opacity-40"
-                  style={{
-                    color: checked ? "var(--color-fg)" : "var(--color-muted)",
-                    background: "none",
-                    border: "none",
-                    padding: 0,
-                    cursor: running ? "not-allowed" : "pointer",
-                  }}
+                  className="btn-checkbox flex items-center gap-2 font-mono text-[13px]"
                 >
                   <span
-                    className="inline-block w-3 h-3 shrink-0"
+                    className="checkbox-box inline-block w-3 h-3 shrink-0"
                     style={{
                       background: checked ? "var(--color-accent)" : "transparent",
                       border: `1px solid ${checked ? "var(--color-accent)" : "var(--color-border)"}`,
                     }}
                   />
-                  {strategyLabels[s]}
+                  <span
+                    className="checkbox-label"
+                    style={{ color: checked ? "var(--color-fg)" : "var(--color-muted)" }}
+                  >
+                    {strategyLabels[s]}
+                  </span>
                 </button>
               );
             })}
@@ -302,18 +391,14 @@ export function BenchRunner({
               type="button"
               disabled={running}
               onClick={() => void preWarm()}
-              className="h-12 w-full font-mono text-[14px] disabled:opacity-40"
-              style={{
-                border: "1px solid var(--color-border)",
-                color: "var(--color-muted)",
-                background: "transparent",
-                cursor: running ? "not-allowed" : "pointer",
-              }}
+              className={`btn-secondary h-12 w-full font-mono text-[14px]${preWarmState === "running" ? " is-loading" : ""}`}
             >
-              [ Pre-warm ]
+              {preWarmState === "running" ? "Pre-warming…" : "[ Pre-warm ]"}
             </button>
             <p className="font-mono text-[11px]" style={{ color: "var(--color-dim)" }}>
-              Recommended before first run
+              {preWarmState === "done"
+                ? <span style={{ color: "var(--color-accent)" }}>✓ Warmed — run benchmark now</span>
+                : "Recommended before first run"}
             </p>
           </div>
 
@@ -322,15 +407,9 @@ export function BenchRunner({
               type="button"
               disabled={running}
               onClick={() => void runBenchmark([selectedLength])}
-              className="h-12 w-full font-mono text-[14px] disabled:opacity-40"
-              style={{
-                border: "1.5px solid var(--color-accent)",
-                color: "var(--color-fg)",
-                background: "transparent",
-                cursor: running ? "not-allowed" : "pointer",
-              }}
+              className={`btn-primary h-12 w-full font-mono text-[14px]${running ? " is-loading" : ""}`}
             >
-              {running && runningLength === selectedLength ? "Running…" : "[ Run benchmark ]"}
+              {runBenchmarkBtnLabel()}
             </button>
             <p className="font-mono text-[11px]" style={{ color: "var(--color-dim)" }}>
               First run includes cold-start cost
@@ -344,16 +423,7 @@ export function BenchRunner({
             type="button"
             disabled={running}
             onClick={() => void runBenchmark(textLengths)}
-            className="font-mono text-[11px] disabled:opacity-40"
-            style={{
-              color: "var(--color-dim)",
-              background: "none",
-              border: "none",
-              padding: 0,
-              cursor: running ? "not-allowed" : "pointer",
-              textDecoration: "underline",
-              textUnderlineOffset: "3px",
-            }}
+            className="btn-tertiary font-mono text-[11px]"
           >
             {running ? "Running…" : "[ Run all sizes ]"}
           </button>
@@ -366,6 +436,7 @@ export function BenchRunner({
             strategies={[...activeStrategies]}
             cells={cells}
             iterations={iterations}
+            onRetry={retryStrategy}
           />
         )}
       </div>

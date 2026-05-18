@@ -3,7 +3,7 @@ import type { StrategyName } from "@/lib/bench/strategies/types";
 
 export type CellState =
   | { kind: "pending" }
-  | { kind: "running"; phase: "warmup" | "iter" }
+  | { kind: "running"; phase: "warmup" | "iter"; progress?: { current: number; total: number } }
   | { kind: "done"; summary: BenchSummary; setupMs: number }
   | { kind: "error"; message: string };
 
@@ -34,9 +34,10 @@ type SingleSizeProps = {
   strategies: StrategyName[];
   cells: Record<BenchCellKey, CellState>;
   iterations?: number;
+  onRetry?: (strategy: StrategyName) => void;
 };
 
-export function BenchResultsSingle({ length, strategies, cells, iterations }: SingleSizeProps) {
+export function BenchResultsSingle({ length, strategies, cells, iterations, onRetry }: SingleSizeProps) {
   const bestP50 = strategies.reduce<number | null>((best, s) => {
     const cell = cells[keyFor(s, length)];
     if (cell?.kind === "done") {
@@ -100,15 +101,33 @@ export function BenchResultsSingle({ length, strategies, cells, iterations }: Si
               ) : cell.kind === "running" ? (
                 <>
                   <span className="w-28 text-right font-mono text-[11px]" style={{ color: "var(--color-dim)" }}>
-                    {cell.phase === "warmup" ? "warming…" : "running…"}
+                    {cell.progress
+                      ? cell.phase === "warmup"
+                        ? `Warming up… ${cell.progress.current} / ${cell.progress.total}`
+                        : `Measuring… ${cell.progress.current} / ${cell.progress.total}`
+                      : cell.phase === "warmup"
+                        ? "warming…"
+                        : "measuring…"}
                   </span>
                   <span className="w-28 text-right" style={{ color: "var(--color-dim)" }}>—</span>
                   <span className="w-28 text-right" style={{ color: "var(--color-dim)" }}>—</span>
                 </>
               ) : cell.kind === "error" ? (
-                <span className="flex-1 text-right text-[11px]" style={{ color: "var(--color-accent)" }}>
-                  {cell.message}
-                </span>
+                <>
+                  <span className="flex-1 text-[12px]" style={{ color: "var(--color-error)" }}>
+                    {cell.message}
+                  </span>
+                  {onRetry && (
+                    <button
+                      type="button"
+                      onClick={() => onRetry(strategy)}
+                      className="btn-tertiary font-mono text-[12px] shrink-0"
+                      style={{ color: "var(--color-fg)", textDecorationColor: "var(--color-fg)" }}
+                    >
+                      [ Retry ]
+                    </button>
+                  )}
+                </>
               ) : (
                 metrics.map(([, metric]) => (
                   <span key={metric} className="w-28 text-right" style={{ color: "var(--color-dim)" }}>—</span>

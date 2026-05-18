@@ -13,6 +13,7 @@
   --color-surface: #1a1a17;
   --color-accent: #c4633b;
   --color-accent-soft: #c4633b1a;
+  --color-error: #a04a3c;
 }
 
 html {
@@ -47,3 +48,66 @@ a:hover {
   background: var(--color-accent-soft);
   color: var(--color-fg);
 }
+
+/* ── Button primitives ───────────────────────────────────────────── */
+
+.btn-primary {
+  border: 1.5px solid var(--color-accent);
+  background: var(--color-surface);
+  color: var(--color-fg);
+  cursor: pointer;
+}
+.btn-primary:hover:not(:disabled) { background: #1f1714; }
+.btn-primary:active:not(:disabled) { background: var(--color-bg); border-width: 2px; }
+.btn-primary:disabled { border-color: var(--color-border); color: var(--color-dim); cursor: not-allowed; }
+.btn-primary.is-loading { color: var(--color-muted); }
+
+.btn-secondary {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+.btn-secondary:hover:not(:disabled) { border-color: var(--color-muted); color: var(--color-fg); }
+.btn-secondary:active:not(:disabled) { border-color: var(--color-fg); color: var(--color-fg); }
+.btn-secondary:disabled { border-color: var(--color-surface); color: var(--color-dim); cursor: not-allowed; }
+.btn-secondary.is-loading { color: var(--color-muted); }
+
+.btn-size {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-dim);
+  cursor: pointer;
+}
+.btn-size:hover:not(:disabled) { border-color: var(--color-muted); color: var(--color-fg); }
+.btn-size:disabled { border-color: var(--color-surface); color: var(--color-dim); cursor: not-allowed; }
+.btn-size.is-selected { border: 1.5px solid var(--color-accent); color: var(--color-fg); }
+.btn-size.has-data:not(.is-selected) { border-color: var(--color-muted); color: var(--color-muted); }
+
+.btn-tertiary {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.btn-tertiary:hover:not(:disabled) { color: var(--color-fg); text-decoration-color: #d9c8a8; text-decoration-thickness: 1.5px; }
+.btn-tertiary:active:not(:disabled) { transform: translateY(1px); }
+.btn-tertiary:disabled { cursor: not-allowed; text-decoration-color: var(--color-border); }
+
+.btn-checkbox {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.btn-checkbox:disabled { cursor: not-allowed; }
+.btn-checkbox:hover:not(:disabled) .checkbox-box { border-color: var(--color-muted) !important; }
+.btn-checkbox:hover:not(:disabled) .checkbox-label { color: var(--color-fg) !important; }
+.btn-checkbox:disabled .checkbox-box { opacity: 0.4; }
+.btn-checkbox:disabled .checkbox-label { color: var(--color-dim) !important; }
+
+.cta-primary:hover { background: rgba(232, 227, 214, 0.05); text-decoration: none; }
+.cta-secondary:hover { border-color: var(--color-muted); color: var(--color-fg); text-decoration: none; }

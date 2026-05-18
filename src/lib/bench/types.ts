@@ -3,6 +3,7 @@ export type BenchOpts = {
   iterations?: number;
   batchSize?: number;
   maxDurationMs?: number;
+  onProgress?: (current: number, total: number, phase: "warmup" | "iter") => void;
 };
 
 export type BenchSpec = {

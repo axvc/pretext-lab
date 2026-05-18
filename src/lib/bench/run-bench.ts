@@ -29,6 +29,7 @@ export async function runBench(
   const iterations = opts.iterations ?? DEFAULTS.iterations;
   const batchSize = opts.batchSize ?? DEFAULTS.batchSize;
   const maxDurationMs = opts.maxDurationMs ?? DEFAULTS.maxDurationMs;
+  const { onProgress } = opts;
 
   let setupMs: number | null = null;
   if (spec.setup) {
@@ -41,11 +42,19 @@ export async function runBench(
   let sink = 0;
 
   try {
+    // Report warmup progress at each 10% milestone regardless of time,
+    // so even sub-millisecond warmup phases show visible progress.
+    let lastPct = 0;
     for (let i = 0; i < warmup; i++) {
       sink += Number(await spec.measure()) | 0;
+      if (onProgress) {
+        const pct = Math.floor(((i + 1) / warmup) * 10);
+        if (pct > lastPct) { lastPct = pct; onProgress(i + 1, warmup, "warmup"); }
+      }
     }
 
     const start = performance.now();
+    let lastProgress = -Infinity;
 
     for (let i = 0; i < iterations; i++) {
       if (performance.now() - start > maxDurationMs) break;
@@ -54,6 +63,11 @@ export async function runBench(
         sink += Number(await spec.measure()) | 0;
       }
       timings.push((performance.now() - t0) / batchSize);
+      const now = performance.now();
+      if (onProgress && now - lastProgress > 100) {
+        lastProgress = now;
+        onProgress(i + 1, iterations, "iter");
+      }
     }
     if (sink === 0xDEADBEEF) console.log(sink);
   } finally {

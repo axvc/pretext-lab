@@ -1,0 +1,20 @@
+---
+title: Bulk measurement amortization
+summary: How per-paragraph cost changes as N grows — and where Pretext crosses below DOM and Canvas.
+order: 2
+status: draft
+apis: ["layout", "prepare"]
+publishedDate: "May 2026"
+---
+
+import AmortizationCurve from "./figures/AmortizationCurve.astro";
+
+## Hypothesis
+
+Pretext carries a fixed preparation cost (`prepare`) that is amortized over N
+paragraphs. Past a breakeven N, its per-paragraph cost drops below DOM and
+Canvas. This experiment estimates that breakeven from bulk timing data.
+
+## Amortization curve
+
+<AmortizationCurve />

@@ -1,13 +1,11 @@
 ---
 import LineChart from "@/components/charts/LineChart.astro";
-import type {
-  Annotation,
-  LineStyle,
-  Series,
-} from "@/components/charts/types";
+import type { Annotation, Series } from "@/components/charts/types";
 
-// MOCK — replace with output of AXV-528
+// MOCK — replace with AXV-528 output
 const N_VALUES = [10, 30, 100, 300, 1000, 3000, 10_000] as const;
+const X_DOMAIN: [number, number] = [10, 10_000];
+const Y_DOMAIN: [number, number] = [1, 1000];
 
 type Browser = "Chrome" | "Firefox" | "Safari";
 type Strategy = "DOM" | "Canvas" | "Pretext";
@@ -15,16 +13,18 @@ type Strategy = "DOM" | "Canvas" | "Pretext";
 const BROWSERS: readonly Browser[] = ["Chrome", "Firefox", "Safari"] as const;
 const STRATEGIES: readonly Strategy[] = ["DOM", "Canvas", "Pretext"] as const;
 
-const STRATEGY_LINE_STYLE: Record<Strategy, LineStyle> = {
-  DOM: "solid",
-  Canvas: "dashed",
-  Pretext: "dotted",
+// Browser colors are intentionally overridden here: browser is panel identity,
+// while strategy is the primary comparison axis inside each panel.
+const STRATEGY_COLOR: Record<Strategy, string> = {
+  DOM: "var(--color-muted)",
+  Canvas: "#d9c8a8",
+  Pretext: "var(--color-accent)",
 };
 
-const BROWSER_COLOR: Record<Browser, string> = {
-  Chrome: "var(--color-muted)",
-  Firefox: "var(--color-muted)",
-  Safari: "var(--color-accent)",
+const BREAKEVEN_N: Record<Browser, number> = {
+  Chrome: 128,
+  Firefox: 134,
+  Safari: 141,
 };
 
 // Cost model per (strategy, browser): per-paragraph cost (µs) = bulk / N + perItem.
@@ -54,38 +54,113 @@ function costAt(strategy: Strategy, browser: Browser, n: number): number {
   return bulk / n + perItem;
 }
 
-const series: Series[] = STRATEGIES.flatMap((strategy) =>
-  BROWSERS.map((browser) => ({
-    id: `${strategy}-${browser}`,
-    label: `${strategy} · ${browser}`,
-    color: BROWSER_COLOR[browser],
-    lineStyle: STRATEGY_LINE_STYLE[strategy],
+const panels = BROWSERS.map((browser) => {
+  const breakevenN = BREAKEVEN_N[browser];
+  const series: Series[] = STRATEGIES.map((strategy) => ({
+    id: `${browser}-${strategy}`,
+    label: strategy,
+    color: STRATEGY_COLOR[strategy],
+    lineStyle: "solid",
+    strokeWidth: 2,
     points: N_VALUES.map((n) => ({ x: n, y: costAt(strategy, browser, n) })),
-  })),
-);
+  }));
+  const annotations: Annotation[] = [
+    {
+      x: breakevenN,
+      y: costAt("Pretext", browser, breakevenN),
+      label: `N = ${breakevenN}`,
+      color: "var(--color-accent)",
+    },
+  ];
 
-// Breakeven N where Pretext becomes cheaper than DOM per paragraph:
-//   (bulk_p - bulk_d) / N = perItem_d - perItem_p  ⇒  N = Δbulk / Δperitem.
-const annotations: Annotation[] = BROWSERS.map((browser) => {
-  const dom = COST_MODEL.DOM[browser];
-  const pre = COST_MODEL.Pretext[browser];
-  const n = Math.ceil((pre.bulk - dom.bulk) / (dom.perItem - pre.perItem));
-  const y = costAt("Pretext", browser, n);
-  return {
-    x: n,
-    y,
-    label: `N = ${n}`,
-    color: "var(--color-accent)",
-  };
+  return { browser, series, annotations };
 });
+
+const legendItems = STRATEGIES.map((strategy) => ({
+  label: strategy,
+  color: STRATEGY_COLOR[strategy],
+}));
 ---
 
-<LineChart
-  series={series}
-  xScale="log"
-  yScale="log"
-  xLabel="N (paragraphs)"
-  yLabel="per-paragraph cost (µs)"
-  xTicks={[10, 100, 1000, 10_000]}
-  annotations={annotations}
-/>
+<figure class="amortization-curve">
+  <div class="amortization-curve__legend" aria-label="Strategy legend">
+    {
+      legendItems.map((item) => (
+        <div class="amortization-curve__legend-item">
+          <span
+            class="amortization-curve__legend-swatch"
+            style={`--swatch-color: ${item.color}`}
+          />
+          <span>{item.label}</span>
+        </div>
+      ))
+    }
+  </div>
+
+  <div class="amortization-curve__panels">
+    {
+      panels.map((panel, index) => (
+        <div class="amortization-curve__panel">
+          <LineChart
+            title={panel.browser}
+            series={panel.series}
+            xScale="log"
+            yScale="log"
+            xLabel="N (paragraphs)"
+            yLabel="per-paragraph cost (µs)"
+            xDomain={X_DOMAIN}
+            yDomain={Y_DOMAIN}
+            xTicks={[10, 100, 1000, 10_000]}
+            annotations={panel.annotations}
+            showYAxisLabels={index === 0}
+            width={220}
+            height={300}
+          />
+        </div>
+      ))
+    }
+  </div>
+</figure>
+
+<style>
+  .amortization-curve {
+    margin: 1.5rem 0 2.5rem;
+    width: 100%;
+  }
+
+  .amortization-curve__legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 18px;
+    margin-bottom: 18px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1;
+    color: var(--color-muted);
+  }
+
+  .amortization-curve__legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .amortization-curve__legend-swatch {
+    display: inline-block;
+    width: 28px;
+    height: 0;
+    border-top: 2px solid var(--swatch-color);
+  }
+
+  .amortization-curve__panels {
+    display: flex;
+    gap: 24px;
+    width: 100%;
+  }
+
+  .amortization-curve__panel {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+</style>

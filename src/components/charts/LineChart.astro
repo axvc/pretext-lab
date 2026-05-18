@@ -15,6 +15,10 @@ const {
   yScale,
   xLabel,
   yLabel,
+  title,
+  showYAxisLabels = true,
+  xDomain: explicitXDomain,
+  yDomain: explicitYDomain,
   xTicks,
   yTicks,
   width = 720,
@@ -38,16 +42,19 @@ function defaultDomain(values: number[], type: "linear" | "log"): [number, numbe
 }
 
 const xDomain: [number, number] =
-  xTicks && xTicks.length > 0 ? domainFromTicks(xTicks) : defaultDomain(allX, xScale);
+  explicitXDomain ??
+  (xTicks && xTicks.length > 0 ? domainFromTicks(xTicks) : defaultDomain(allX, xScale));
 
 const yDomain: [number, number] =
-  yTicks && yTicks.length > 0 ? domainFromTicks(yTicks) : defaultDomain(allY, yScale);
+  explicitYDomain ??
+  (yTicks && yTicks.length > 0 ? domainFromTicks(yTicks) : defaultDomain(allY, yScale));
 
 const xs = makeScale(xScale, xDomain, [PAD.left, PAD.left + plotW]);
 const ys = makeScale(yScale, yDomain, [PAD.top + plotH, PAD.top]);
 
 const xTickValues = xTicks ?? (xScale === "log" ? logTicks(xDomain) : []);
 const yTickValues = yTicks ?? (yScale === "log" ? logTicks(yDomain) : []);
+const ariaLabel = title ? `${title}: ${yLabel} vs ${xLabel}` : `${yLabel} vs ${xLabel}`;
 
 function formatTick(value: number): string {
   const abs = Math.abs(value);
@@ -85,9 +92,23 @@ function dashArray(style: LineStyle): string | undefined {
   class="line-chart"
   viewBox={`0 0 ${width} ${height}`}
   role="img"
-  aria-label={`${yLabel} vs ${xLabel}`}
+  aria-label={ariaLabel}
   preserveAspectRatio="xMidYMid meet"
 >
+  {
+    title && (
+      <text
+        x={PAD.left + plotW / 2}
+        y={14}
+        text-anchor="middle"
+        fill="var(--color-fg)"
+        class="line-chart__title"
+      >
+        {title}
+      </text>
+    )
+  }
+
   <g class="line-chart__grid">
     {
       yTickValues.map((v) => (
@@ -151,15 +172,19 @@ function dashArray(style: LineStyle): string | undefined {
       yTickValues.map((v) => (
         <g>
           <line x1={PAD.left - 4} x2={PAD.left} y1={ys(v)} y2={ys(v)} />
-          <text
-            x={PAD.left - 8}
-            y={ys(v)}
-            text-anchor="end"
-            dominant-baseline="central"
-            class="line-chart__tick-label"
-          >
-            {formatTick(v)}
-          </text>
+          {
+            showYAxisLabels && (
+              <text
+                x={PAD.left - 8}
+                y={ys(v)}
+                text-anchor="end"
+                dominant-baseline="central"
+                class="line-chart__tick-label"
+              >
+                {formatTick(v)}
+              </text>
+            )
+          }
         </g>
       ))
     }
@@ -173,13 +198,17 @@ function dashArray(style: LineStyle): string | undefined {
   >
     {xLabel}
   </text>
-  <text
-    transform={`translate(20 ${PAD.top + plotH / 2}) rotate(-90)`}
-    text-anchor="middle"
-    class="line-chart__axis-label"
-  >
-    {yLabel}
-  </text>
+  {
+    showYAxisLabels && (
+      <text
+        transform={`translate(20 ${PAD.top + plotH / 2}) rotate(-90)`}
+        text-anchor="middle"
+        class="line-chart__axis-label"
+      >
+        {yLabel}
+      </text>
+    )
+  }
 
   <g class="line-chart__series">
     {
@@ -248,6 +277,14 @@ function dashArray(style: LineStyle): string | undefined {
     font-size: 11px;
     font-feature-settings: "tnum" 1;
     fill: var(--color-muted);
+  }
+
+  .line-chart__title {
+    font-family: var(--font-serif);
+    font-size: 15px;
+    font-weight: 600;
+    font-variation-settings: "SOFT" 0, "WONK" 1;
+    fill: var(--color-fg);
   }
 
   .line-chart__axis-label {

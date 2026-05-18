@@ -1,0 +1,91 @@
+---
+import LineChart from "@/components/charts/LineChart.astro";
+import type {
+  Annotation,
+  LineStyle,
+  Series,
+} from "@/components/charts/types";
+
+// MOCK — replace with output of AXV-528
+const N_VALUES = [10, 30, 100, 300, 1000, 3000, 10_000] as const;
+
+type Browser = "Chrome" | "Firefox" | "Safari";
+type Strategy = "DOM" | "Canvas" | "Pretext";
+
+const BROWSERS: readonly Browser[] = ["Chrome", "Firefox", "Safari"] as const;
+const STRATEGIES: readonly Strategy[] = ["DOM", "Canvas", "Pretext"] as const;
+
+const STRATEGY_LINE_STYLE: Record<Strategy, LineStyle> = {
+  DOM: "solid",
+  Canvas: "dashed",
+  Pretext: "dotted",
+};
+
+const BROWSER_COLOR: Record<Browser, string> = {
+  Chrome: "var(--color-muted)",
+  Firefox: "var(--color-muted)",
+  Safari: "var(--color-accent)",
+};
+
+// Cost model per (strategy, browser): per-paragraph cost (µs) = bulk / N + perItem.
+const COST_MODEL: Record<
+  Strategy,
+  Record<Browser, { bulk: number; perItem: number }>
+> = {
+  DOM: {
+    Chrome: { bulk: 200, perItem: 25 },
+    Firefox: { bulk: 220, perItem: 28 },
+    Safari: { bulk: 280, perItem: 35 },
+  },
+  Canvas: {
+    Chrome: { bulk: 1000, perItem: 15 },
+    Firefox: { bulk: 1200, perItem: 18 },
+    Safari: { bulk: 800, perItem: 14 },
+  },
+  Pretext: {
+    Chrome: { bulk: 3000, perItem: 3 },
+    Firefox: { bulk: 3500, perItem: 3.5 },
+    Safari: { bulk: 4500, perItem: 5 },
+  },
+};
+
+function costAt(strategy: Strategy, browser: Browser, n: number): number {
+  const { bulk, perItem } = COST_MODEL[strategy][browser];
+  return bulk / n + perItem;
+}
+
+const series: Series[] = STRATEGIES.flatMap((strategy) =>
+  BROWSERS.map((browser) => ({
+    id: `${strategy}-${browser}`,
+    label: `${strategy} · ${browser}`,
+    color: BROWSER_COLOR[browser],
+    lineStyle: STRATEGY_LINE_STYLE[strategy],
+    points: N_VALUES.map((n) => ({ x: n, y: costAt(strategy, browser, n) })),
+  })),
+);
+
+// Breakeven N where Pretext becomes cheaper than DOM per paragraph:
+//   (bulk_p - bulk_d) / N = perItem_d - perItem_p  ⇒  N = Δbulk / Δperitem.
+const annotations: Annotation[] = BROWSERS.map((browser) => {
+  const dom = COST_MODEL.DOM[browser];
+  const pre = COST_MODEL.Pretext[browser];
+  const n = Math.ceil((pre.bulk - dom.bulk) / (dom.perItem - pre.perItem));
+  const y = costAt("Pretext", browser, n);
+  return {
+    x: n,
+    y,
+    label: `N = ${n}`,
+    color: "var(--color-accent)",
+  };
+});
+---
+
+<LineChart
+  series={series}
+  xScale="log"
+  yScale="log"
+  xLabel="N (paragraphs)"
+  yLabel="per-paragraph cost (µs)"
+  xTicks={[10, 100, 1000, 10_000]}
+  annotations={annotations}
+/>

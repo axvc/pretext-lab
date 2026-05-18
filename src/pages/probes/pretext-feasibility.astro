@@ -1,0 +1,351 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+
+const isProd = import.meta.env.PROD;
+---
+
+<BaseLayout title="Pretext feasibility probe">
+  <section class="px-6 lg:px-24 py-16">
+    <p class="font-mono text-[11px] uppercase tracking-[1.6px] text-[var(--color-muted)] mb-6">
+      Diagnostic probe · AXV-521
+    </p>
+    <h1
+      class="font-serif text-[40px] lg:text-[48px] leading-[1.05] tracking-[-0.02em] text-[var(--color-fg)] mb-6"
+      style="font-variation-settings: 'SOFT' 0, 'WONK' 1"
+    >
+      Pretext feasibility probe
+    </h1>
+
+    {
+      isProd ? (
+        <p class="font-mono text-[14px] text-[var(--color-muted)] max-w-[680px]">
+          Probe unavailable in production builds.
+        </p>
+      ) : (
+        <>
+          <p class="font-mono text-[14px] leading-[1.6] text-[var(--color-muted)] max-w-[680px] mb-8">
+            Holds N prepared Pretext handles in memory at once and lays each
+            out, climbing through fixed N levels until OOM, timeout, or
+            unreasonable slowdown. Close DevTools and run a production-style
+            build for representative numbers; the in-page memory column is
+            Chrome-only.
+          </p>
+
+          <div class="flex gap-3 mb-8">
+            <button id="probe-run" type="button" class="btn-primary px-4 py-2 font-mono text-[14px]">
+              Run
+            </button>
+            <button id="probe-stop" type="button" class="btn-secondary px-4 py-2 font-mono text-[14px]" disabled>
+              Stop
+            </button>
+          </div>
+
+          <table class="font-mono text-[13px] border-collapse w-full max-w-[720px]">
+            <thead>
+              <tr class="text-[var(--color-muted)] text-[11px] uppercase tracking-[1.2px]">
+                <th class="text-left py-2 pr-4 border-b border-[var(--color-border)]">N</th>
+                <th class="text-right py-2 px-4 border-b border-[var(--color-border)]">prepare ms</th>
+                <th class="text-right py-2 px-4 border-b border-[var(--color-border)]">layout ms</th>
+                <th class="text-right py-2 px-4 border-b border-[var(--color-border)]">peak heap MB</th>
+                <th class="text-left py-2 pl-4 border-b border-[var(--color-border)]">status</th>
+              </tr>
+            </thead>
+            <tbody id="probe-rows"></tbody>
+          </table>
+
+          <p
+            id="probe-summary"
+            class="font-mono text-[14px] text-[var(--color-dim)] mt-8"
+          >
+            Probe not yet run
+          </p>
+        </>
+      )
+    }
+  </section>
+</BaseLayout>
+
+<script>
+  if (!import.meta.env.PROD) {
+    void (async () => {
+      const { prepare, layout } = await import("@chenglou/pretext");
+
+      const FONT_SPEC = '16px "Inter"';
+      const WIDTH_PX = 600;
+      const LINE_HEIGHT_PX = 24;
+      const PARA_COUNT = 10_000;
+      const PARA_LEN = 500;
+      const LEVELS = [100, 500, 1000, 2500, 5000, 7500, 10_000] as const;
+      const TIMEOUT_MS = 60_000;
+      const CHUNK = 100;
+      const SEED = 0x9e3779b9;
+      const COOLDOWN_MS = 500;
+
+      const LOREM_WORDS = [
+        "lorem", "ipsum", "dolor", "sit", "amet", "consectetur", "adipiscing",
+        "elit", "sed", "do", "eiusmod", "tempor", "incididunt", "ut", "labore",
+        "et", "dolore", "magna", "aliqua", "enim", "ad", "minim", "veniam",
+        "quis", "nostrud", "exercitation", "ullamco", "laboris", "nisi",
+        "aliquip", "ex", "ea", "commodo", "consequat", "duis", "aute", "irure",
+        "in", "reprehenderit", "voluptate", "velit", "esse", "cillum", "fugiat",
+        "nulla", "pariatur", "excepteur", "sint", "occaecat", "cupidatat",
+        "non", "proident", "sunt", "culpa", "qui", "officia", "deserunt",
+        "mollit", "anim", "id", "est", "laborum",
+      ];
+
+      const runBtn = document.getElementById("probe-run") as HTMLButtonElement | null;
+      const stopBtn = document.getElementById("probe-stop") as HTMLButtonElement | null;
+      const tbody = document.getElementById("probe-rows");
+      const summary = document.getElementById("probe-summary");
+      if (!runBtn || !stopBtn || !tbody || !summary) return;
+
+      function mulberry32(seed: number): () => number {
+        let a = seed >>> 0;
+        return () => {
+          a = (a + 0x6d2b79f5) >>> 0;
+          let t = a;
+          t = Math.imul(t ^ (t >>> 15), t | 1);
+          t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+
+      function generateCorpus(): string[] {
+        const rand = mulberry32(SEED);
+        const out: string[] = new Array(PARA_COUNT);
+        for (let p = 0; p < PARA_COUNT; p++) {
+          let s = "";
+          while (s.length < PARA_LEN) {
+            const w = LOREM_WORDS[Math.floor(rand() * LOREM_WORDS.length)]!;
+            s = s.length === 0 ? w : s + " " + w;
+          }
+          out[p] = s;
+        }
+        return out;
+      }
+
+      function readHeapBytes(): number | null {
+        const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+        return mem ? mem.usedJSHeapSize : null;
+      }
+
+      function tryGc(): void {
+        const gc = (window as unknown as { gc?: () => void }).gc;
+        if (typeof gc === "function") gc();
+      }
+
+      function fmt(n: number): string {
+        return n.toFixed(1);
+      }
+
+      class AbortError extends Error {
+        constructor() { super("ABORTED"); }
+      }
+
+      async function runPhase(
+        N: number,
+        fn: (i: number) => void,
+        signal: AbortSignal,
+      ): Promise<number> {
+        let workMs = 0;
+        for (let start = 0; start < N; start += CHUNK) {
+          if (signal.aborted) throw new AbortError();
+          const end = Math.min(start + CHUNK, N);
+          const t0 = performance.now();
+          for (let i = start; i < end; i++) fn(i);
+          workMs += performance.now() - t0;
+          await new Promise((r) => setTimeout(r, 0));
+        }
+        return workMs;
+      }
+
+      type PhaseResult =
+        | { kind: "ok"; ms: number }
+        | { kind: "timeout" }
+        | { kind: "aborted" }
+        | { kind: "error"; message: string };
+
+      async function runPhaseLimited(
+        N: number,
+        fn: (i: number) => void,
+        userSignal: AbortSignal,
+      ): Promise<PhaseResult> {
+        const phaseCtrl = new AbortController();
+        const onUserAbort = () => phaseCtrl.abort();
+        userSignal.addEventListener("abort", onUserAbort);
+
+        let timeoutId: ReturnType<typeof setTimeout> | undefined;
+        const timeoutP = new Promise<PhaseResult>((resolve) => {
+          timeoutId = setTimeout(() => {
+            phaseCtrl.abort();
+            resolve({ kind: "timeout" });
+          }, TIMEOUT_MS);
+        });
+
+        const workP: Promise<PhaseResult> = runPhase(N, fn, phaseCtrl.signal).then(
+          (ms) => ({ kind: "ok", ms }),
+          (err: unknown) => {
+            if (userSignal.aborted) return { kind: "aborted" };
+            if (err instanceof AbortError) return { kind: "aborted" };
+            const message = err instanceof Error ? err.message : String(err);
+            return { kind: "error", message };
+          },
+        );
+
+        try {
+          return await Promise.race([workP, timeoutP]);
+        } finally {
+          if (timeoutId !== undefined) clearTimeout(timeoutId);
+          userSignal.removeEventListener("abort", onUserAbort);
+        }
+      }
+
+      type Row = {
+        setPrepare: (v: string) => void;
+        setLayout: (v: string) => void;
+        setHeap: (v: string) => void;
+        setStatus: (v: string, tone?: "error" | "muted") => void;
+      };
+
+      function addRow(N: number): Row {
+        const tr = document.createElement("tr");
+        const borderCls = "border-b border-[var(--color-border)]";
+        tr.innerHTML = `
+          <td class="text-left py-2 pr-4 ${borderCls}">${N}</td>
+          <td class="text-right py-2 px-4 ${borderCls}" data-prepare>—</td>
+          <td class="text-right py-2 px-4 ${borderCls}" data-layout>—</td>
+          <td class="text-right py-2 px-4 ${borderCls}" data-heap>—</td>
+          <td class="text-left py-2 pl-4 ${borderCls}" data-status>running…</td>
+        `;
+        tbody!.appendChild(tr);
+        const q = (sel: string) => tr.querySelector(sel) as HTMLElement;
+        const prepareCell = q("[data-prepare]");
+        const layoutCell = q("[data-layout]");
+        const heapCell = q("[data-heap]");
+        const statusCell = q("[data-status]");
+        return {
+          setPrepare: (v) => { prepareCell.textContent = v; },
+          setLayout: (v) => { layoutCell.textContent = v; },
+          setHeap: (v) => { heapCell.textContent = v; },
+          setStatus: (v, tone) => {
+            statusCell.textContent = v;
+            statusCell.style.color =
+              tone === "error" ? "var(--color-error)" :
+              tone === "muted" ? "var(--color-muted)" : "";
+          },
+        };
+      }
+
+      let corpus: string[] | null = null;
+      let controller: AbortController | null = null;
+
+      async function run(): Promise<void> {
+        tbody!.innerHTML = "";
+        summary!.textContent = "Probe running…";
+        summary!.style.color = "var(--color-muted)";
+        summary!.style.fontSize = "";
+        runBtn!.disabled = true;
+        stopBtn!.disabled = false;
+        controller = new AbortController();
+        const signal = controller.signal;
+
+        if (!corpus) corpus = generateCorpus();
+        const paragraphs = corpus;
+
+        let maxN = 0;
+        let aborted = false;
+        let sink = 0;
+
+        for (const N of LEVELS) {
+          const row = addRow(N);
+          const handles: ReturnType<typeof prepare>[] = new Array(N);
+
+          const heapBefore = readHeapBytes();
+
+          const prepResult = await runPhaseLimited(
+            N,
+            (i) => { handles[i] = prepare(paragraphs[i]!, FONT_SPEC); },
+            signal,
+          );
+
+          if (prepResult.kind === "ok") {
+            row.setPrepare(fmt(prepResult.ms));
+          } else if (prepResult.kind === "timeout") {
+            row.setStatus("TIMEOUT", "error");
+            break;
+          } else if (prepResult.kind === "aborted") {
+            row.setStatus("ABORTED", "muted");
+            aborted = true;
+            break;
+          } else {
+            row.setStatus(`ERROR: ${prepResult.message}`, "error");
+            break;
+          }
+
+          const heapAfter = readHeapBytes();
+          if (heapBefore !== null && heapAfter !== null) {
+            const deltaMb = (heapAfter - heapBefore) / 1024 / 1024;
+            row.setHeap(fmt(deltaMb));
+          } else {
+            row.setHeap("N/A");
+          }
+
+          const layoutResult = await runPhaseLimited(
+            N,
+            (i) => {
+              const r = layout(handles[i]!, WIDTH_PX, LINE_HEIGHT_PX);
+              sink += r.lineCount;
+            },
+            signal,
+          );
+
+          if (layoutResult.kind === "ok") {
+            row.setLayout(fmt(layoutResult.ms));
+            row.setStatus("OK");
+            maxN = N;
+          } else if (layoutResult.kind === "timeout") {
+            row.setStatus("TIMEOUT", "error");
+            break;
+          } else if (layoutResult.kind === "aborted") {
+            row.setStatus("ABORTED", "muted");
+            aborted = true;
+            break;
+          } else {
+            row.setStatus(`ERROR: ${layoutResult.message}`, "error");
+            break;
+          }
+
+          handles.length = 0;
+          tryGc();
+          await new Promise((r) => setTimeout(r, COOLDOWN_MS));
+          if (signal.aborted) { aborted = true; break; }
+        }
+
+        console.log(sink);
+
+        if (aborted) {
+          summary!.textContent = "Probe aborted";
+          summary!.style.color = "var(--color-muted)";
+        } else if (maxN > 0) {
+          summary!.textContent = `Max successful N: ${maxN}`;
+          summary!.style.color = "var(--color-accent)";
+          summary!.style.fontSize = "20px";
+        } else {
+          summary!.textContent = "Probe failed before any level completed";
+          summary!.style.color = "var(--color-error)";
+        }
+
+        runBtn!.disabled = false;
+        stopBtn!.disabled = true;
+        controller = null;
+      }
+
+      runBtn.addEventListener("click", () => {
+        void run();
+      });
+      stopBtn.addEventListener("click", () => {
+        controller?.abort();
+      });
+    })();
+  }
+</script>
